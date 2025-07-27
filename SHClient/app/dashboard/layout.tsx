@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { useAuth, useUser } from '@clerk/nextjs'
 import Image from 'next/image'
 import { 
   HomeIcon,
@@ -17,7 +18,8 @@ import {
   ChevronRightIcon,
   BellIcon,
   MoonIcon,
-  SunIcon
+  SunIcon,
+  ArrowRightOnRectangleIcon
 } from '@heroicons/react/24/outline'
 import { DashboardBackground } from '../../components/dashboard-background'
 
@@ -31,6 +33,10 @@ export default function DashboardLayout({
   const [notifications] = useState(2)
   const [themeToggled, setThemeToggled] = useState(false)
   const pathname = usePathname()
+  
+  // Clerk hooks for logout
+  const { signOut } = useAuth()
+  const { user } = useUser()
 
   const navigation = [
     { name: 'Main Dashboard', href: '/dashboard', icon: HomeIcon },
@@ -41,6 +47,20 @@ export default function DashboardLayout({
     { name: 'AI Insights', href: '/dashboard/insights', icon: CpuChipIcon },
     { name: 'Settings', href: '/dashboard/settings', icon: Cog6ToothIcon },
   ]
+
+  const handleLogout = async () => {
+    try {
+      await signOut({
+        redirectUrl: '/signin'
+      })
+      // Force reload to ensure clean state
+      window.location.href = '/signin'
+    } catch (error) {
+      console.error('Logout error:', error)
+      // Fallback: force redirect even if logout fails
+      window.location.href = '/signin'
+    }
+  }
 
   return (
     <div className="min-h-screen bg-gray-900 relative">
@@ -158,29 +178,37 @@ export default function DashboardLayout({
                   </Link>
                 )
               })}
+
             </nav>
-{/* Footer Section - Moved to Bottom with Reduced Space */}
-<div className="absolute bottom-0 w-full px-2 py-1 border-t border-white/20 dark:border-white/10">
-  {!sidebarCollapsed ? (
-    <div className="text-xs text-center">
-      <div className="text-gray-400"> © 2025 SentinelHub</div>
-      <div className="text-blue-400">Made by Sarah Henia</div>
-      <div className="flex justify-center">
-        <Image
-          src="/images/swhite.png"
-          alt="The samurAI"
-          width={20}
-          height={20}
-          className="object-contain opacity-80 hover:opacity-100 transition-opacity duration-200"
-        />
-      </div>
-    </div>
-  ) : (
-    <div className="flex justify-center">
-      <div className="w-6 h-0.5 bg-blue-500/40 rounded-full"></div>
-    </div>
-  )}
-</div>
+
+            {/* Footer Section - Moved to Bottom with Reduced Space */}
+            <div className="absolute bottom-0 w-full px-2 py-1 border-t border-white/20 dark:border-white/10">
+              {!sidebarCollapsed ? (
+                <div className="text-xs text-center">
+                  <div className="text-gray-400"> © 2025 SentinelHub</div>
+                  <div className="text-blue-400">Made by Sarah Henia</div>
+                  <div className="flex justify-center">
+                    <Image
+                      src="/images/swhite.png"
+                      alt="The samurAI"
+                      width={20}
+                      height={20}
+                      className="object-contain opacity-80 hover:opacity-100 transition-opacity duration-200"
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div className="flex justify-center">
+                  <button
+                    onClick={handleLogout}
+                    className="p-2 rounded-xl hover:bg-red-500/10 transition-colors"
+                    title="Sign out"
+                  >
+                    <ArrowRightOnRectangleIcon className="w-5 h-5 text-red-400" />
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
@@ -239,17 +267,30 @@ export default function DashboardLayout({
                 )}
               </button>
               
-              {/* Enhanced User Profile Section */}
+              {/* Enhanced User Profile Section with Logout */}
               <div className="pl-4 border-l border-white/20 dark:border-white/10">
-                <button className="flex items-center space-x-3 p-2 rounded-xl hover:bg-white/10 dark:hover:bg-black/20 transition-all duration-200 border border-transparent hover:border-white/20 dark:hover:border-white/10">
-                  <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center text-white font-bold text-sm shadow-lg">
-                    A
+                <div className="flex items-center space-x-2">
+                  <div className="flex items-center space-x-3 p-2 rounded-xl">
+                    <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center text-white font-bold text-sm shadow-lg">
+                      {user?.firstName?.charAt(0) || user?.emailAddresses?.[0]?.emailAddress?.charAt(0) || 'U'}
+                    </div>
+                    <div className="hidden md:block text-left">
+                      <p className="text-sm font-medium text-white">
+                        {user?.firstName} {user?.lastName} || 'User'
+                      </p>
+                      <p className="text-xs text-blue-400">
+                        {user?.emailAddresses?.[0]?.emailAddress || 'user@example.com'}
+                      </p>
+                    </div>
                   </div>
-                  <div className="hidden md:block text-left">
-                    <p className="text-sm font-medium text-white">Alex Chen</p>
-                    <p className="text-xs text-blue-400">DevOps Engineer</p>
-                  </div>
-                </button>
+                  <button
+                    onClick={handleLogout}
+                    className="p-2 rounded-xl hover:bg-red-500/10 hover:text-red-300 text-red-400 transition-all duration-200 border border-transparent hover:border-red-500/30"
+                    title="Sign out"
+                  >
+                    <ArrowRightOnRectangleIcon className="w-5 h-5" />
+                  </button>
+                </div>
               </div>
             </div>
           </header>

@@ -80,20 +80,26 @@ export default function AuthLayout({
                   <span className="animate-[code-2_14s_infinite]">
                     Authenticated as user@sentinelhub.com
                   </span>
-                  <span className="animate-[code-3_14s_infinite] text-gray-200">
+                  <span className="animate-[code-3_14s_infinite] text-purple-400">
+                    Authentication secured by Clerk
+                  </span>
+                  <span className="animate-[code-4_14s_infinite] text-gray-200">
                     terraform apply -var-file=devops.tfvars
                   </span>
-                  <span className="animate-[code-4_14s_infinite]">
+                  <span className="animate-[code-5_14s_infinite]">
                     Infrastructure provisioned successfully
                   </span>
-                  <span className="animate-[code-5_14s_infinite] text-gray-200">
+                  <span className="animate-[code-6_14s_infinite] text-gray-200">
                     sonar-scanner -Dproject.settings=sonar-project.properties
                   </span>
-                  <span className="animate-[code-6_14s_infinite]">
+                  <span className="animate-[code-7_14s_infinite]">
                     Quality gate passed
                   </span>
-                  <span className="animate-[code-7_14s_infinite] text-gray-200">
+                  <span className="animate-[code-8_14s_infinite] text-gray-200">
                     n8n trigger deployment-pipeline.yaml
+                  </span>
+                  <span className="animate-[code-9_14s_infinite] text-cyan-400">
+                   Enterprise auth ready
                   </span>
                 </div>
               </div>
