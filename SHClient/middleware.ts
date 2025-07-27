@@ -26,6 +26,12 @@ const isAuthRoute = createRouteMatcher([
 export default clerkMiddleware(async (auth, req) => {
   const { pathname } = req.nextUrl
   
+    // Block malicious requests
+    if (pathname.includes('hybridaction') || 
+    pathname.includes('zybTracker') ||
+    pathname.includes('statistics')) {
+  return new Response('Blocked', { status: 403 })
+}
   // Always allow public routes
   if (isPublicRoute(req)) {
     // Special handling for SSO callback - always allow
