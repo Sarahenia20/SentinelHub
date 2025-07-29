@@ -9,7 +9,7 @@ export default function Footer({ border = false }: { border?: boolean }) {
         className="absolute inset-0 -z-10 flex items-center justify-center opacity-10"
         aria-hidden="true"
       >
-        <div className="pointer-events-none text-center text-[348px] font-bold leading-none text-white/20">
+  <div className="pointer-events-none text-center text-[200px] font-bold leading-none text-white/10">
           SENTINELHUB
         </div>
         {/* Glow */}

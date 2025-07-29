@@ -1,6 +1,7 @@
 import { Inter } from 'next/font/google'
 import './css/style.css'
 import { ClerkProvider } from '@clerk/nextjs'
+import AuthDebugComponent from '@/components/AuthDebugComponent'
 
 const inter = Inter({
   subsets: ['latin'],
@@ -27,6 +28,7 @@ export default function RootLayout({
           <div className="flex flex-col min-h-screen overflow-hidden supports-[overflow:clip]:overflow-clip">
             {children}
           </div>
+          {/* {process.env.NODE_ENV === 'development' && <AuthDebugComponent />} */}
         </body>
       </html>
     </ClerkProvider>

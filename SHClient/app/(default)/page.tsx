@@ -1,5 +1,5 @@
 export const metadata = {
-  title: "Home - SentinelHub",
+  title: "SentinelHub",
   description: "AI-Powered DevOps Security Platform",
 };
 

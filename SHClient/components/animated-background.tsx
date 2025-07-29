@@ -1,33 +1,95 @@
+'use client'
+import { useEffect, useState } from 'react'
+
 export default function AnimatedBackground() {
+  const [isClient, setIsClient] = useState(false)
+  const [animationData, setAnimationData] = useState({
+    binaryRain: [] as Array<{left: number, delay: number, duration: number, char: string}>,
+    secondaryBinary: [] as Array<{left: number, delay: number, duration: number, char: string}>,
+    dataParticles: [] as Array<{left: number, top: number, delay: number, duration: number}>,
+    secondaryParticles: [] as Array<{left: number, top: number, delay: number, duration: number}>,
+    codeBlocks: [] as Array<{left: number, delay: number, duration: number, code: string}>
+  })
+
+  useEffect(() => {
+    setIsClient(true)
+    
+    // Generate all random values on client side only
+    setAnimationData({
+      binaryRain: Array.from({ length: 100 }, () => ({
+        left: Math.random() * 100,
+        delay: Math.random() * 3,
+        duration: 6 + Math.random() * 3,
+        char: Math.random() > 0.5 ? '1' : '0'
+      })),
+      secondaryBinary: Array.from({ length: 80 }, () => ({
+        left: Math.random() * 100,
+        delay: Math.random() * 4,
+        duration: 8 + Math.random() * 4,
+        char: Math.random() > 0.3 ? '101' : '010'
+      })),
+      dataParticles: Array.from({ length: 60 }, () => ({
+        left: Math.random() * 100,
+        top: Math.random() * 100,
+        delay: Math.random() * 8,
+        duration: 12 + Math.random() * 8
+      })),
+      secondaryParticles: Array.from({ length: 40 }, () => ({
+        left: Math.random() * 100,
+        top: Math.random() * 100,
+        delay: Math.random() * 10,
+        duration: 15 + Math.random() * 10
+      })),
+      codeBlocks: Array.from({ length: 15 }, () => ({
+        left: Math.random() * 100,
+        delay: Math.random() * 5,
+        duration: 10 + Math.random() * 5,
+        code: `{${Math.floor(Math.random() * 999)}: "SEC"}`
+      }))
+    })
+  }, [])
+
+  // Don't render the animated elements on server to avoid hydration mismatch
+  if (!isClient) {
+    return (
+      <div className="fixed inset-0 -z-50 overflow-hidden pointer-events-none">
+        {/* Static background elements only */}
+        <div className="absolute inset-0 bg-gradient-radial from-transparent via-transparent to-blue-900/5"></div>
+        <div className="absolute inset-0 bg-hex-pattern opacity-8"></div>
+        <div className="absolute inset-0 bg-grid-pattern opacity-6"></div>
+      </div>
+    )
+  }
+
   return (
     <div className="fixed inset-0 -z-50 overflow-hidden pointer-events-none">
       {/* DOUBLE Binary rain effect - ALL BLUES */}
       <div className="absolute inset-0">
-        {[...Array(100)].map((_, i) => (
+        {animationData.binaryRain.map((item, i) => (
           <div
             key={i}
             className="absolute text-blue-400/30 font-mono text-xs animate-binary-fall"
             style={{
-              left: `${Math.random() * 100}%`,
-              animationDelay: `${Math.random() * 3}s`,
-              animationDuration: `${6 + Math.random() * 3}s`
+              left: `${item.left}%`,
+              animationDelay: `${item.delay}s`,
+              animationDuration: `${item.duration}s`
             }}
           >
-            {Math.random() > 0.5 ? '1' : '0'}
+            {item.char}
           </div>
         ))}
         {/* Secondary binary layer */}
-        {[...Array(80)].map((_, i) => (
+        {animationData.secondaryBinary.map((item, i) => (
           <div
             key={`sec-${i}`}
             className="absolute text-sky-400/20 font-mono text-sm animate-binary-fall"
             style={{
-              left: `${Math.random() * 100}%`,
-              animationDelay: `${Math.random() * 4}s`,
-              animationDuration: `${8 + Math.random() * 4}s`
+              left: `${item.left}%`,
+              animationDelay: `${item.delay}s`,
+              animationDuration: `${item.duration}s`
             }}
           >
-            {Math.random() > 0.3 ? '101' : '010'}
+            {item.char}
           </div>
         ))}
       </div>
@@ -100,28 +162,28 @@ export default function AnimatedBackground() {
 
       {/* DOUBLE floating data particles - ALL BLUES */}
       <div className="absolute inset-0">
-        {[...Array(60)].map((_, i) => (
+        {animationData.dataParticles.map((item, i) => (
           <div
             key={i}
             className="absolute w-2 h-2 bg-blue-400/50 rounded-full animate-float-data glow-blue"
             style={{
-              left: `${Math.random() * 100}%`,
-              top: `${Math.random() * 100}%`,
-              animationDelay: `${Math.random() * 8}s`,
-              animationDuration: `${12 + Math.random() * 8}s`
+              left: `${item.left}%`,
+              top: `${item.top}%`,
+              animationDelay: `${item.delay}s`,
+              animationDuration: `${item.duration}s`
             }}
           />
         ))}
         {/* Secondary particle layer */}
-        {[...Array(40)].map((_, i) => (
+        {animationData.secondaryParticles.map((item, i) => (
           <div
             key={`sec-${i}`}
             className="absolute w-1.5 h-1.5 bg-sky-400/40 rounded-full animate-float-data glow-cyan"
             style={{
-              left: `${Math.random() * 100}%`,
-              top: `${Math.random() * 100}%`,
-              animationDelay: `${Math.random() * 10}s`,
-              animationDuration: `${15 + Math.random() * 10}s`
+              left: `${item.left}%`,
+              top: `${item.top}%`,
+              animationDelay: `${item.delay}s`,
+              animationDuration: `${item.duration}s`
             }}
           />
         ))}
@@ -144,17 +206,17 @@ export default function AnimatedBackground() {
 
       {/* Matrix-style code blocks - BLUE */}
       <div className="absolute inset-0">
-        {[...Array(15)].map((_, i) => (
+        {animationData.codeBlocks.map((item, i) => (
           <div
             key={i}
             className="absolute text-blue-400/20 font-mono text-xs animate-binary-fall"
             style={{
-              left: `${Math.random() * 100}%`,
-              animationDelay: `${Math.random() * 5}s`,
-              animationDuration: `${10 + Math.random() * 5}s`
+              left: `${item.left}%`,
+              animationDelay: `${item.delay}s`,
+              animationDuration: `${item.duration}s`
             }}
           >
-            {`{${Math.floor(Math.random() * 999)}: "SEC"}`}
+            {item.code}
           </div>
         ))}
       </div>
@@ -174,5 +236,5 @@ export default function AnimatedBackground() {
       {/* Target acquisition overlay */}
       <div className="absolute inset-0 bg-gradient-radial from-transparent via-transparent to-blue-900/5"></div>
     </div>
-  );
+  )
 }
