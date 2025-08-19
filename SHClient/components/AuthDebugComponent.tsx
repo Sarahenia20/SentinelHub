@@ -36,7 +36,8 @@ export default function AuthDebugComponent() {
     }
 
     gatherDebugInfo()
-    const interval = setInterval(gatherDebugInfo, 2000) // Update every 2 seconds
+    // Reduced polling frequency to reduce CPU usage
+    const interval = setInterval(gatherDebugInfo, 5000) // Update every 5 seconds instead of 2
 
     return () => clearInterval(interval)
   }, [isLoaded, userId, sessionId, user])

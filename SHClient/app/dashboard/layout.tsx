@@ -43,21 +43,12 @@ export default function DashboardLayout({
   const { signOut, userId, isLoaded } = useAuth()
   const { user } = useUser()
 
-  // Redirect to sign-in if not authenticated
-  useEffect(() => {
-    if (isLoaded && !userId) {
-      console.log('No userId, redirecting to /signin')
-      router.push('/signin')
-    }
-  }, [isLoaded, userId, router])
+  // Note: Authentication is handled by middleware, no client-side redirect needed
 
   const navigation = [
-    { name: 'Main Dashboard', href: '/dashboard', icon: HomeIcon },
-    { name: 'Code Scanner', href: '/dashboard/scans', icon: MagnifyingGlassIcon },
-    { name: 'Repositories', href: '/dashboard/repositories', icon: FolderIcon },
-    { name: 'Security Reports', href: '/dashboard/security', icon: ShieldCheckIcon },
-    { name: 'DevOps Metrics', href: '/dashboard/devops', icon: ChartBarIcon },
-    { name: 'AI Insights', href: '/dashboard/insights', icon: CpuChipIcon },
+    { name: 'Dashboard', href: '/dashboard', icon: HomeIcon },
+    { name: 'Scanner', href: '/dashboard/scanner', icon: MagnifyingGlassIcon },
+    { name: 'Security Reports', href: '/dashboard/reports', icon: ChartBarIcon },
     { name: 'Settings', href: '/dashboard/settings', icon: Cog6ToothIcon },
   ]
 

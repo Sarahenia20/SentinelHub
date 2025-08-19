@@ -35,16 +35,17 @@ export default clerkMiddleware(async (auth, req) => {
     return new Response('Blocked', { status: 403 });
   }
 
+  // Special handling for SSO callback - always allow immediately
+  if (pathname.startsWith('/sso-callback')) {
+    return NextResponse.next();
+  }
+
+  // Get auth info once and reuse
+  const { userId } = await auth();
+
   // Always allow public routes
   if (isPublicRoute(req)) {
-    // Special handling for SSO callback - always allow
-    if (pathname.startsWith('/sso-callback')) {
-      return NextResponse.next();
-    }
-
-    // For other public routes, check if user is authenticated and redirect away from auth pages
-    const { userId } = await auth();
-
+    // For public routes, check if user is authenticated and redirect away from auth pages
     if (userId && isAuthRoute(req)) {
       // Authenticated user trying to access auth pages - redirect to dashboard
       const dashboardUrl = new URL('/dashboard', req.url);
@@ -55,8 +56,6 @@ export default clerkMiddleware(async (auth, req) => {
   }
 
   // For protected routes, check authentication
-  const { userId } = await auth();
-
   if (!userId) {
     // Not authenticated - redirect to signin
     const signInUrl = new URL('/signin', req.url);
