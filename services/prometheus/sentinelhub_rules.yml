@@ -1,0 +1,68 @@
+# SentinelHub Prometheus alerting rules
+
+groups:
+  - name: sentinelhub_alerts
+    rules:
+      # API Gateway health
+      - alert: SentinelHubAPIDown
+        expr: up{job="sentinelhub-api"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "SentinelHub API Gateway is down"
+          description: "The SentinelHub API Gateway has been down for more than 1 minute."
+
+      # High scan failure rate
+      - alert: HighScanFailureRate
+        expr: rate(sentinelhub_scan_failures_total[5m]) > 0.5
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High scan failure rate detected"
+          description: "Scan failure rate is {{ $value }} failures per second."
+
+      # Redis connection issues
+      - alert: RedisConnectionDown
+        expr: up{job="redis"} == 0
+        for: 30s
+        labels:
+          severity: critical
+        annotations:
+          summary: "Redis connection is down"
+          description: "Unable to connect to Redis database."
+
+      # High memory usage
+      - alert: HighMemoryUsage
+        expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 90
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory usage"
+          description: "Memory usage is above 90% for more than 5 minutes."
+
+      # High scan queue length
+      - alert: HighScanQueueLength
+        expr: sentinelhub_scan_queue_length > 100
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High scan queue length"
+          description: "Scan queue has {{ $value }} pending scans."
+
+  - name: sentinelhub_performance
+    rules:
+      # Scan duration recording rule
+      - record: sentinelhub:scan_duration_seconds:rate5m
+        expr: rate(sentinelhub_scan_duration_seconds_sum[5m]) / rate(sentinelhub_scan_duration_seconds_count[5m])
+
+      # API response time recording rule  
+      - record: sentinelhub:api_response_time:rate5m
+        expr: rate(http_request_duration_seconds_sum[5m]) / rate(http_request_duration_seconds_count[5m])
+
+      # Vulnerability detection rate
+      - record: sentinelhub:vulnerability_detection_rate:rate1h
+        expr: rate(sentinelhub_vulnerabilities_detected_total[1h])

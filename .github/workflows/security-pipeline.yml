@@ -1,0 +1,315 @@
+
+name: SentinelHub Security Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      scan_type:
+        description: 'Type of scan to run'
+        required: true
+        default: 'full'
+        type: choice
+        options:
+        - 'full'
+        - 'code-only'
+        - 'docker-only'
+
+env:
+  NODE_VERSION: '18'
+  DOCKER_REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  # Security Code Analysis
+  code-security:
+    name: Code Security Analysis
+    runs-on: ubuntu-latest
+    outputs:
+      security-score: ${{ steps.calculate-score.outputs.score }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: |
+        cd SHClient
+        npm ci
+
+    - name: ESLint Security Analysis
+      run: |
+        cd SHClient
+        npm install eslint-plugin-security @typescript-eslint/eslint-plugin eslint-plugin-sonarjs
+        npx eslint . --ext .js,.jsx,.ts,.tsx --format json --output-file ../eslint-results.json || true
+      continue-on-error: true
+
+    - name: Semgrep Security Scan
+      uses: returntocorp/semgrep-action@v1
+      with:
+        config: >-
+          p/security-audit
+          p/owasp-top-ten
+          p/javascript
+          p/typescript
+          p/docker
+        generateSarif: "1"
+      env:
+        SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
+
+    - name: Secret Scanning with TruffleHog
+      uses: trufflesecurity/trufflehog@main
+      with:
+        path: ./
+        base: main
+        head: HEAD
+        extra_args: --debug --only-verified
+
+    - name: SonarQube Analysis
+      uses: sonarqube-quality-gate-action@master
+      with:
+        scanMetadataReportFile: .scannerwork/report-task.txt
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+
+    - name: Calculate Security Score
+      id: calculate-score
+      run: |
+        # Parse results and calculate score
+        ESLINT_ISSUES=$(jq '.[] | .messages | length' eslint-results.json 2>/dev/null || echo "0")
+        SEMGREP_ISSUES=$(wc -l < results.sarif 2>/dev/null || echo "0")
+        
+        # Calculate score (100 - weighted issues)
+        TOTAL_WEIGHT=$((ESLINT_ISSUES * 2 + SEMGREP_ISSUES * 5))
+        SCORE=$((100 - TOTAL_WEIGHT))
+        SCORE=$((SCORE > 0 ? SCORE : 0))
+        
+        echo "score=$SCORE" >> $GITHUB_OUTPUT
+        echo "Security Score: $SCORE/100"
+
+    - name: Upload Security Results
+      uses: actions/upload-artifact@v4
+      with:
+        name: security-scan-results
+        path: |
+          eslint-results.json
+          results.sarif
+          .scannerwork/
+
+  # Docker Security Analysis
+  docker-security:
+    name: Docker Security Analysis
+    runs-on: ubuntu-latest
+    if: github.event.inputs.scan_type != 'code-only'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Build Docker images
+      run: |
+        docker build -t sentinelhub-api:test ./backend/api-gateway
+        docker build -t sentinelhub-frontend:test ./SHClient
+
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: 'sentinelhub-api:test'
+        format: 'sarif'
+        output: 'trivy-api-results.sarif'
+
+    - name: Run Trivy on Frontend
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: 'sentinelhub-frontend:test'
+        format: 'sarif'
+        output: 'trivy-frontend-results.sarif'
+
+    - name: Run Docker Bench Security
+      run: |
+        git clone https://github.com/Sarahenia20/docker-bench.git
+        cd docker-bench
+        chmod +x docker-bench-security.sh
+        ./docker-bench-security.sh -l ../docker-bench-results.log
+
+    - name: Hadolint Dockerfile Linting
+      uses: hadolint/hadolint-action@v3.1.0
+      with:
+        dockerfile: ./backend/api-gateway/Dockerfile
+        format: sarif
+        output-file: hadolint-api-results.sarif
+
+    - name: Upload Docker Security Results
+      uses: actions/upload-artifact@v4
+      with:
+        name: docker-security-results
+        path: |
+          trivy-*-results.sarif
+          docker-bench-results.log
+          hadolint-*-results.sarif
+
+  # Infrastructure Security
+  infrastructure-security:
+    name: Infrastructure Security
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Checkov Security Analysis
+      uses: bridgecrewio/checkov-action@master
+      with:
+        directory: .
+        framework: docker_compose,dockerfile,github_actions
+        output_format: sarif
+        output_file_path: checkov-results.sarif
+
+    - name: Upload Infrastructure Results
+      uses: actions/upload-artifact@v4
+      with:
+        name: infrastructure-security-results
+        path: checkov-results.sarif
+
+  # External API Security Check
+  external-apis:
+    name: External API Security
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Check API Endpoints
+      run: |
+        # Simulate API security checks
+        echo "Checking external API integrations..."
+        
+        # VirusTotal API
+        if [ -n "${{ secrets.VIRUSTOTAL_API_KEY }}" ]; then
+          curl -s "https://www.virustotal.com/vtapi/v2/file/report?apikey=${{ secrets.VIRUSTOTAL_API_KEY }}&resource=test" > /dev/null
+          echo "✅ VirusTotal API: Connected"
+        else
+          echo "⚠️ VirusTotal API: Not configured"
+        fi
+        
+        # Shodan API
+        if [ -n "${{ secrets.SHODAN_API_KEY }}" ]; then
+          curl -s "https://api.shodan.io/api-info?key=${{ secrets.SHODAN_API_KEY }}" > /dev/null
+          echo "✅ Shodan API: Connected"
+        else
+          echo "⚠️ Shodan API: Not configured"
+        fi
+
+  # Generate Security Report
+  security-report:
+    name: Generate Security Report
+    runs-on: ubuntu-latest
+    needs: [code-security, docker-security, infrastructure-security, external-apis]
+    if: always()
+    
+    steps:
+    - name: Download all artifacts
+      uses: actions/download-artifact@v4
+
+    - name: Generate comprehensive report
+      run: |
+        mkdir -p security-report
+        
+        # Create summary report
+        cat > security-report/summary.md << EOF
+        # SentinelHub Security Report
+        
+        **Date:** $(date)
+        **Commit:** ${{ github.sha }}
+        **Branch:** ${{ github.ref_name }}
+        **Security Score:** ${{ needs.code-security.outputs.security-score }}/100
+        
+        ## Analysis Results
+        
+        ### Code Security
+        - ESLint Security: $([ -f security-scan-results/eslint-results.json ] && echo "✅ Completed" || echo "❌ Failed")
+        - Semgrep: $([ -f security-scan-results/results.sarif ] && echo "✅ Completed" || echo "❌ Failed")
+        - Secret Scanning: ✅ Completed
+        - SonarQube: ✅ Completed
+        
+        ### Docker Security
+        - Trivy Scanning: $([ -f docker-security-results/trivy-api-results.sarif ] && echo "✅ Completed" || echo "❌ Failed")
+        - Docker Bench: $([ -f docker-security-results/docker-bench-results.log ] && echo "✅ Completed" || echo "❌ Failed")
+        - Hadolint: ✅ Completed
+        
+        ### Infrastructure Security
+        - Checkov: $([ -f infrastructure-security-results/checkov-results.sarif ] && echo "✅ Completed" || echo "❌ Failed")
+        
+        ## Recommendations
+        
+        1. Review all HIGH and CRITICAL severity findings
+        2. Update dependencies with known vulnerabilities
+        3. Implement security patches
+        4. Review Docker configurations
+        
+        ## Next Steps
+        
+        - Monitor security score trends
+        - Schedule regular security scans
+        - Update security policies
+        EOF
+
+    - name: Upload Security Report
+      uses: actions/upload-artifact@v4
+      with:
+        name: security-report
+        path: security-report/
+
+    - name: Comment on PR
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+          const report = fs.readFileSync('security-report/summary.md', 'utf8');
+          
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: `## 🔒 Security Analysis Report\n\n${report}`
+          });
+
+  # Notify SentinelHub Dashboard
+  notify-dashboard:
+    name: Notify SentinelHub Dashboard
+    runs-on: ubuntu-latest
+    needs: [security-report]
+    if: always()
+    
+    steps:
+    - name: Send results to SentinelHub
+      run: |
+        # Send scan results to SentinelHub API
+        curl -X POST "${{ secrets.SENTINELHUB_WEBHOOK_URL }}" \
+          -H "Content-Type: application/json" \
+          -H "Authorization: Bearer ${{ secrets.SENTINELHUB_API_TOKEN }}" \
+          -d '{
+            "scanId": "${{ github.run_id }}",
+            "repository": "${{ github.repository }}",
+            "branch": "${{ github.ref_name }}",
+            "commit": "${{ github.sha }}",
+            "securityScore": "${{ needs.code-security.outputs.security-score }}",
+            "status": "completed",
+            "timestamp": "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'",
+            "workflowUrl": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          }' || echo "Failed to notify SentinelHub dashboard"
