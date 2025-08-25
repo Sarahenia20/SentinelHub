@@ -25,11 +25,15 @@ export function SettingsPanel() {
   const [showAwsSecret, setShowAwsSecret] = useState(false)
   const [githubConnected, setGithubConnected] = useState(false)
   const [awsConnected, setAwsConnected] = useState(false)
+  const [dockerConnected, setDockerConnected] = useState(false)
 
   const [formData, setFormData] = useState({
     awsAccessKey: '',
     awsSecretKey: '',
     awsRegion: 'us-east-1',
+    s3BucketName: '',
+    dockerHubUsername: '',
+    dockerHubToken: '',
     apiKey: '',
     aiModel: 'gpt-4',
     scanDepth: 'moderate',
@@ -60,6 +64,14 @@ export function SettingsPanel() {
     }
   }
 
+
+  const connectDocker = () => {
+    // Simulate Docker Hub connection
+    if (formData.dockerHubUsername && formData.dockerHubToken) {
+      setDockerConnected(true)
+    }
+  }
+
   const saveSettings = () => {
     // Save settings logic
     console.log('Settings saved:', formData)
@@ -69,32 +81,33 @@ export function SettingsPanel() {
     <div className="min-h-screen text-white">
       <div className="container mx-auto px-6 py-8">
 
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-          {/* Sidebar */}
-          <div className="backdrop-blur-xl bg-white/5 border border-white/10 rounded-2xl p-6">
-            <nav className="space-y-2">
+        {/* Horizontal Tab Navigation */}
+        <div className="flex justify-center mb-8">
+          <div className="backdrop-blur-xl bg-white/5 border border-white/10 rounded-2xl p-1.5">
+            <div className="flex space-x-1">
               {tabs.map((tab) => {
                 const IconComponent = tab.icon
                 return (
                   <button
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id)}
-                    className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-200 ${
+                    className={`flex items-center px-6 py-3 rounded-xl font-medium transition-all duration-200 ${
                       activeTab === tab.id
-                        ? "bg-gradient-to-r from-cyan-500/20 to-blue-500/20 text-cyan-400 border border-cyan-500/30 shadow-lg shadow-cyan-500/10"
-                        : "text-gray-300 hover:bg-gray-700/50 hover:text-white"
+                        ? "bg-gradient-to-r from-cyan-500/20 to-blue-500/20 text-cyan-300 border border-cyan-400/30"
+                        : "text-gray-400 hover:text-gray-200 hover:bg-white/5"
                     }`}
                   >
-                    <IconComponent className="w-5 h-5" />
+                    <IconComponent className="w-5 h-5 mr-2" />
                     <span className="font-medium">{tab.name}</span>
                   </button>
                 )
               })}
-            </nav>
+            </div>
           </div>
+        </div>
 
-          {/* Content */}
-          <div className="lg:col-span-3 backdrop-blur-xl bg-white/5 border border-white/10 rounded-2xl p-8">
+        {/* Content */}
+        <div className="backdrop-blur-xl bg-white/5 border border-white/10 rounded-2xl p-8">
             {/* Profile Tab */}
             {activeTab === "profile" && (
               <div className="space-y-8">
@@ -213,43 +226,141 @@ export function SettingsPanel() {
                   )}
                 </div>
 
-                {/* Local Scanning Tools */}
-                <div className="bg-white/5 border border-white/10 rounded-xl p-6">
+                {/* AWS Integration */}
+                <div className="bg-gray-900/50 border border-gray-600/50 rounded-xl p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-10 h-10 bg-orange-600 rounded-xl flex items-center justify-center">
+                        <CloudIcon className="w-6 h-6 text-white" />
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-semibold text-white">AWS Connection</h3>
+                        <p className="text-sm text-gray-400">Connect to AWS services including EC2, S3, Lambda for security scanning</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-3">
+                      {awsConnected ? (
+                        <div className="flex items-center space-x-2 text-green-400">
+                          <CheckCircleIcon className="w-5 h-5" />
+                          <span className="text-sm font-medium">Connected</span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center space-x-2 text-gray-400">
+                          <XCircleIcon className="w-5 h-5" />
+                          <span className="text-sm font-medium">Not Connected</span>
+                        </div>
+                      )}
+                      <button
+                        onClick={testAwsConnection}
+                        className="px-4 py-2 bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 rounded-xl font-medium transition-all duration-200"
+                      >
+                        {awsConnected ? 'Test Connection' : 'Connect'}
+                      </button>
+                    </div>
+                  </div>
+                  {!awsConnected && (
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-300 mb-2">AWS Access Key</label>
+                        <input
+                          type="text"
+                          value={formData.awsAccessKey}
+                          onChange={(e) => handleInputChange('awsAccessKey', e.target.value)}
+                          className="w-full bg-gray-900/50 border border-gray-600/50 rounded-xl px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500/50"
+                          placeholder="AKIA..."
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-300 mb-2">AWS Secret Key</label>
+                        <input
+                          type="password"
+                          value={formData.awsSecretKey}
+                          onChange={(e) => handleInputChange('awsSecretKey', e.target.value)}
+                          className="w-full bg-gray-900/50 border border-gray-600/50 rounded-xl px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500/50"
+                          placeholder="Enter secret key"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-300 mb-2">Default S3 Bucket (Optional)</label>
+                        <input
+                          type="text"
+                          value={formData.s3BucketName}
+                          onChange={(e) => handleInputChange('s3BucketName', e.target.value)}
+                          className="w-full bg-gray-900/50 border border-gray-600/50 rounded-xl px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500/50"
+                          placeholder="my-security-bucket"
+                        />
+                      </div>
+                    </div>
+                  )}
+                  {awsConnected && (
+                    <div className="text-sm text-gray-400">
+                      Region: {formData.awsRegion} | Last sync: 5 minutes ago | Services: EC2, S3, Lambda {formData.s3BucketName && `| Default S3: ${formData.s3BucketName}`}
+                    </div>
+                  )}
+                </div>
+
+
+                {/* Docker Hub Integration */}
+                <div className="bg-gray-900/50 border border-gray-600/50 rounded-xl p-6">
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center space-x-3">
                       <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center">
-                        <CommandLineIcon className="w-6 h-6 text-white" />
+                        <CpuChipIcon className="w-6 h-6 text-white" />
                       </div>
                       <div>
-                        <h3 className="text-lg font-semibold text-white">Local Security Tools</h3>
-                        <p className="text-sm text-gray-400">Enable integrated security scanning engines</p>
+                        <h3 className="text-lg font-semibold text-white">Docker Hub</h3>
+                        <p className="text-sm text-gray-400">Connect to Docker Hub for container scanning</p>
                       </div>
+                    </div>
+                    <div className="flex items-center space-x-3">
+                      {dockerConnected ? (
+                        <div className="flex items-center space-x-2 text-green-400">
+                          <CheckCircleIcon className="w-5 h-5" />
+                          <span className="text-sm font-medium">Connected</span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center space-x-2 text-gray-400">
+                          <XCircleIcon className="w-5 h-5" />
+                          <span className="text-sm font-medium">Not Connected</span>
+                        </div>
+                      )}
+                      <button
+                        onClick={connectDocker}
+                        className="px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 rounded-xl font-medium transition-all duration-200"
+                      >
+                        {dockerConnected ? 'Reconnect' : 'Connect'}
+                      </button>
                     </div>
                   </div>
-
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between p-4 bg-black/20 rounded-xl">
+                  {!dockerConnected && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                       <div>
-                        <h4 className="text-white font-medium">Semgrep Scanner</h4>
-                        <p className="text-sm text-gray-400">Static analysis security scanner</p>
+                        <label className="block text-sm font-medium text-gray-300 mb-2">Docker Hub Username</label>
+                        <input
+                          type="text"
+                          value={formData.dockerHubUsername}
+                          onChange={(e) => handleInputChange('dockerHubUsername', e.target.value)}
+                          className="w-full bg-gray-900/50 border border-gray-600/50 rounded-xl px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500/50"
+                          placeholder="your-username"
+                        />
                       </div>
-                      <label className="relative inline-flex items-center cursor-pointer">
-                        <input type="checkbox" defaultChecked className="sr-only peer" />
-                        <div className="w-11 h-6 bg-gray-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-cyan-300/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-cyan-600"></div>
-                      </label>
-                    </div>
-                    
-                    <div className="flex items-center justify-between p-4 bg-black/20 rounded-xl">
                       <div>
-                        <h4 className="text-white font-medium">Docker Bench Security</h4>
-                        <p className="text-sm text-gray-400">Container security analysis</p>
+                        <label className="block text-sm font-medium text-gray-300 mb-2">Docker Hub Token</label>
+                        <input
+                          type="password"
+                          value={formData.dockerHubToken}
+                          onChange={(e) => handleInputChange('dockerHubToken', e.target.value)}
+                          className="w-full bg-gray-900/50 border border-gray-600/50 rounded-xl px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500/50"
+                          placeholder="dckr_pat_..."
+                        />
                       </div>
-                      <label className="relative inline-flex items-center cursor-pointer">
-                        <input type="checkbox" defaultChecked className="sr-only peer" />
-                        <div className="w-11 h-6 bg-gray-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-cyan-300/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-cyan-600"></div>
-                      </label>
                     </div>
-                  </div>
+                  )}
+                  {dockerConnected && (
+                    <div className="text-sm text-gray-400">
+                      User: {formData.dockerHubUsername} | Last sync: 3 minutes ago | Images: 15 | Repositories: 8
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -305,16 +416,15 @@ export function SettingsPanel() {
               </div>
             )}
 
-            {/* Save Button */}
-            <div className="mt-8 flex justify-end">
-              <button
-                onClick={saveSettings}
-                className="px-8 py-3 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 rounded-xl font-medium transition-all duration-200 flex items-center space-x-2"
-              >
-                <CheckCircleIcon className="w-5 h-5" />
-                <span>Save Settings</span>
-              </button>
-            </div>
+          {/* Save Button */}
+          <div className="mt-8 flex justify-end">
+            <button
+              onClick={saveSettings}
+              className="px-8 py-3 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 rounded-xl font-medium transition-all duration-200 flex items-center space-x-2"
+            >
+              <CheckCircleIcon className="w-5 h-5" />
+              <span>Save Settings</span>
+            </button>
           </div>
         </div>
       </div>

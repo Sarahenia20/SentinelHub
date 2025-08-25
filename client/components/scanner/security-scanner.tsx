@@ -44,12 +44,15 @@ interface ChatMessage {
 export function SecurityScanner() {
   const router = useRouter()
   const [activeTab, setActiveTab] = useState<'scanner' | 'results'>('scanner')
-  const [scanType, setScanType] = useState<'code' | 'docker' | 'cloud' | 'secrets'>('code')
+  const [scanType, setScanType] = useState<'code' | 'github' | 'aws' | 'docker'>('code')
   const [codeInput, setCodeInput] = useState(`function authenticateUser(username, password) {
   const query = "SELECT * FROM users WHERE username='" + username + "' AND password='" + password + "'";
   const apiKey = "sk-1234567890abcdef";
   return db.query(query);
 }`)
+  const [repositoryUrl, setRepositoryUrl] = useState('')
+  const [s3BucketUrl, setS3BucketUrl] = useState('')
+  const [dockerImageUrl, setDockerImageUrl] = useState('')
   const [isScanning, setIsScanning] = useState(false)
   const [scanResults, setScanResults] = useState<ScanResult[]>([])
   const [currentPage, setCurrentPage] = useState(1)
@@ -59,47 +62,67 @@ export function SecurityScanner() {
     {
       id: '1',
       role: 'ai',
-      content: "SentinelHub Terminal v2.1.0\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nSecurity analysis initialized. Ready to scan your code, containers, cloud configs, and secrets.\n\nType 'help' for commands or paste code to begin analysis.",
+      content: "Hi! Ready to help with your security analysis. Run a scan to get started.",
       timestamp: new Date()
     }
   ])
   const [chatInput, setChatInput] = useState('')
   const [isTyping, setIsTyping] = useState(false)
 
-  const engines = [
-    { name: 'Semgrep', icon: BugAntIcon, status: 'idle' },
-    { name: 'GitGuardian', icon: KeyIcon, status: 'idle' },
-    { name: 'CodeRabbit', icon: CommandLineIcon, status: 'idle' },
-    { name: 'Docker Bench', icon: ServerIcon, status: 'idle' },
-    { name: 'Grafana Security', icon: CloudIcon, status: 'idle' }
-  ]
+  const getEnginesForScanType = (type: string) => {
+    switch (type) {
+      case 'code':
+        return [
+          { name: 'Semgrep', icon: BugAntIcon, status: 'analyzing' },
+          { name: 'ESLint Security', icon: CodeBracketIcon, status: 'analyzing' },
+          { name: 'SonarQube', icon: ShieldCheckIcon, status: 'analyzing' },
+          { name: 'CodeRabbit AI', icon: CpuChipIcon, status: 'analyzing' }
+        ]
+      case 'github':
+        return [
+          { name: 'Semgrep', icon: BugAntIcon, status: 'analyzing' },
+          { name: 'CodeRabbit AI', icon: CpuChipIcon, status: 'analyzing' },
+          { name: 'ESLint Security', icon: CodeBracketIcon, status: 'analyzing' },
+          { name: 'SonarQube', icon: ShieldCheckIcon, status: 'analyzing' },
+          { name: 'Secret Scanner', icon: KeyIcon, status: 'analyzing' }
+        ]
+      case 'aws':
+        return [
+          { name: 'AWS Config', icon: CloudIcon, status: 'analyzing' },
+          { name: 'S3 Security', icon: ServerIcon, status: 'analyzing' },
+          { name: 'IAM Analyzer', icon: ShieldCheckIcon, status: 'analyzing' },
+          { name: 'CloudTrail', icon: EyeIcon, status: 'analyzing' }
+        ]
+      case 'docker':
+        return [
+          { name: 'Docker Bench', icon: ServerIcon, status: 'analyzing' },
+          { name: 'Trivy Scanner', icon: ExclamationTriangleIcon, status: 'analyzing' },
+          { name: 'Container Security', icon: ShieldCheckIcon, status: 'analyzing' },
+          { name: 'Image Analyzer', icon: CpuChipIcon, status: 'analyzing' }
+        ]
+      default:
+        return []
+    }
+  }
+
+  const getInputValue = () => {
+    switch (scanType) {
+      case 'code': return codeInput
+      case 'github': return repositoryUrl
+      case 'aws': return s3BucketUrl
+      case 'docker': return dockerImageUrl
+      default: return ''
+    }
+  }
 
   const startScan = () => {
-    if (!codeInput.trim()) return
+    const inputValue = getInputValue()
+    if (!inputValue.trim()) return
     setIsScanning(true)
     setScanResults([])
     
     setTimeout(() => {
-      const results: ScanResult[] = [
-        {
-          id: '1',
-          type: 'critical',
-          title: 'SQL Injection Vulnerability',
-          description: 'User input directly concatenated into SQL query without parameterization',
-          file: 'auth.js',
-          line: 2,
-          engine: 'Semgrep'
-        },
-        {
-          id: '2',
-          type: 'high',
-          title: 'Hardcoded API Key',
-          description: 'API key detected in source code',
-          file: 'auth.js',
-          line: 3,
-          engine: 'GitGuardian'
-        }
-      ]
+      const results: ScanResult[] = generateScanResults(scanType, inputValue)
       setScanResults(results)
       setIsScanning(false)
       
@@ -107,12 +130,99 @@ export function SecurityScanner() {
         const analysis: ChatMessage = {
           id: Date.now().toString(),
           role: 'ai',
-          content: `Analysis complete. Found ${results.length} security issues:\n\n- Critical SQL injection on line 2\n- High-risk hardcoded secret on line 3\n\nWould you like specific remediation steps for any of these vulnerabilities?`,
+          content: `Analysis complete for ${scanType.toUpperCase()} scan.\n\nTarget: ${inputValue}\nFound ${results.length} security issues:\n\n${results.map(r => `- ${r.type.toUpperCase()}: ${r.title}`).join('\n')}\n\nWould you like specific remediation steps for any of these vulnerabilities?`,
           timestamp: new Date()
         }
         setChatMessages(prev => [...prev, analysis])
       }, 1000)
     }, 3000)
+  }
+
+  const generateScanResults = (type: string, target: string): ScanResult[] => {
+    switch (type) {
+      case 'code':
+        return [
+          {
+            id: '1',
+            type: 'critical',
+            title: 'SQL Injection Vulnerability',
+            description: 'User input directly concatenated into SQL query without parameterization',
+            file: 'user_code.js',
+            line: 2,
+            engine: 'Semgrep'
+          },
+          {
+            id: '2',
+            type: 'high',
+            title: 'Hardcoded API Key',
+            description: 'API key detected in source code',
+            file: 'user_code.js',
+            line: 3,
+            engine: 'GitGuardian'
+          }
+        ]
+      case 'github':
+        return [
+          {
+            id: '3',
+            type: 'critical',
+            title: 'Exposed Secret in Repository',
+            description: 'API key found in repository history',
+            file: 'config.js',
+            line: 12,
+            engine: 'GitGuardian'
+          },
+          {
+            id: '4',
+            type: 'high',
+            title: 'Vulnerable Dependency',
+            description: 'Package with known security vulnerability detected',
+            file: 'package.json',
+            line: 15,
+            engine: 'Semgrep'
+          }
+        ]
+      case 'docker':
+        return [
+          {
+            id: '5',
+            type: 'high',
+            title: 'Vulnerable Base Image',
+            description: 'Base image contains known security vulnerabilities',
+            file: 'Dockerfile',
+            line: 1,
+            engine: 'Docker Bench'
+          },
+          {
+            id: '6',
+            type: 'medium',
+            title: 'Running as Root User',
+            description: 'Container runs with root privileges',
+            file: 'Dockerfile',
+            line: 15,
+            engine: 'Docker Bench'
+          }
+        ]
+      case 'aws':
+        return [
+          {
+            id: '7',
+            type: 'critical',
+            title: 'Public S3 Bucket',
+            description: 'S3 bucket allows public read access',
+            engine: 'AWS Config'
+          },
+          {
+            id: '8',
+            type: 'high',
+            title: 'Unencrypted S3 Bucket',
+            description: 'S3 bucket does not have encryption enabled',
+            engine: 'AWS Config'
+          }
+        ]
+      default:
+        return []
+    }
   }
 
   const sendMessage = () => {
@@ -193,10 +303,10 @@ export function SecurityScanner() {
   const securityScore = scanResults.length === 0 ? 0 : Math.max(20, 100 - (criticalCount * 30 + highCount * 20))
 
   const scanTypeOptions = [
-    { type: 'code' as const, name: 'Code Analysis', icon: CodeBracketIcon, description: 'Scan source code for vulnerabilities' },
-    { type: 'docker' as const, name: 'Container Scan', icon: ServerIcon, description: 'Docker security analysis' },
-    { type: 'cloud' as const, name: 'Cloud Config', icon: CloudIcon, description: 'Infrastructure as Code security' },
-    { type: 'secrets' as const, name: 'Secret Detection', icon: KeyIcon, description: 'Find exposed credentials' }
+    { type: 'code' as const, name: 'Code Analysis', icon: CodeBracketIcon, description: 'Paste code for analysis' },
+    { type: 'github' as const, name: 'GitHub Repository', icon: CommandLineIcon, description: 'Scan GitHub repositories' },
+    { type: 'aws' as const, name: 'AWS/S3 Scan', icon: CloudIcon, description: 'AWS services & S3 security scan' },
+    { type: 'docker' as const, name: 'Docker Container', icon: ServerIcon, description: 'Container security analysis' }
   ]
 
   const tabs = [
@@ -274,97 +384,255 @@ export function SecurityScanner() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 space-y-6">
+        <div className="grid grid-cols-1 xl:grid-cols-5 gap-6">
+          <div className="xl:col-span-3 space-y-6">
             {activeTab === 'scanner' && (
               <>
-                {/* Scan Type Selection */}
-                <div className="backdrop-blur-xl bg-white/5 border border-white/10 rounded-2xl p-6 hover:border-cyan-400/30 transition-all duration-300">
-                  <h3 className="text-lg font-medium text-white mb-4">Select Scan Type</h3>
-                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                {/* Scan Type Tabs */}
+                <div className="backdrop-blur-xl bg-white/5 border border-white/10 rounded-2xl p-1.5 mb-6">
+                  <div className="flex space-x-1">
                     {scanTypeOptions.map((option) => {
                       const IconComponent = option.icon
                       return (
                         <button
                           key={option.type}
                           onClick={() => setScanType(option.type)}
-                          className={`p-4 rounded-xl border transition-all duration-200 ${
+                          className={`flex items-center px-6 py-3 rounded-xl font-medium transition-all duration-200 ${
                             scanType === option.type
-                              ? 'bg-cyan-500/20 border-cyan-400/50 text-cyan-300'
-                              : 'bg-white/5 border-white/10 text-gray-300 hover:bg-white/10'
+                              ? 'bg-gradient-to-r from-cyan-500/20 to-blue-500/20 text-cyan-300 border border-cyan-400/30'
+                              : 'text-gray-400 hover:text-gray-200 hover:bg-white/5'
                           }`}
                         >
-                          <IconComponent className="w-6 h-6 mx-auto mb-2" />
-                          <div className="text-sm font-medium">{option.name}</div>
-                          <div className="text-xs text-gray-400 mt-1">{option.description}</div>
+                          <IconComponent className="w-5 h-5 mr-2" />
+                          <span>{option.name}</span>
                         </button>
                       )
                     })}
                   </div>
                 </div>
 
-                {/* Code Input - Terminal Style */}
-                <div className="backdrop-blur-xl bg-white/5 border border-blue-500/20 rounded-2xl p-6 hover:border-blue-400/40 transition-all duration-300 font-mono">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center">
-                      <div className="flex space-x-2 mr-4">
-                        <div className="w-3 h-3 bg-red-500 rounded-full"></div>
-                        <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
-                        <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+                {/* Code Analysis Tab */}
+                {scanType === 'code' && (
+                  <div className="backdrop-blur-xl bg-white/5 border border-blue-500/20 rounded-2xl p-6 hover:border-blue-400/40 transition-all duration-300 font-mono">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center">
+                        <div className="flex space-x-2 mr-4">
+                          <div className="w-3 h-3 bg-red-500 rounded-full"></div>
+                          <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
+                          <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+                        </div>
+                        <span className="text-blue-400 text-sm">root@sentinelhub:~$ </span>
+                        <span className="text-white text-sm">nano security_analysis.{scanType}</span>
                       </div>
-                      <span className="text-blue-400 text-sm">root@sentinelhub:~$ </span>
-                      <span className="text-white text-sm">nano security_analysis.{scanType}</span>
                     </div>
-                  </div>
-                  <textarea
-                    value={codeInput}
-                    onChange={(e) => setCodeInput(e.target.value)}
-                    placeholder="# Paste your code here for security analysis...
+                    <textarea
+                      value={codeInput}
+                      onChange={(e) => setCodeInput(e.target.value)}
+                      placeholder="# Paste your code here for security analysis...
 # Terminal ready for input
 # Available engines: Semgrep, GitGuardian, CodeRabbit, Docker Bench, Grafana Security"
-                    className="w-full h-80 bg-black/20 border border-blue-400/20 rounded-xl px-4 py-3 text-blue-300 placeholder-blue-700/60 focus:outline-none font-mono text-sm resize-none"
-                    spellCheck={false}
-                  />
-                  <div className="flex justify-between items-center mt-4">
-                    <div className="flex gap-3">
+                      className="w-full h-80 bg-black/20 border border-blue-400/20 rounded-xl px-4 py-3 text-blue-300 placeholder-blue-700/60 focus:outline-none font-mono text-sm resize-none"
+                      spellCheck={false}
+                    />
+                    <div className="flex justify-between items-center mt-4">
+                      <div className="flex gap-3">
+                        <button
+                          onClick={startScan}
+                          disabled={isScanning || !codeInput.trim()}
+                          className="flex items-center px-6 py-3 bg-gradient-to-r from-blue-600/80 to-cyan-600/80 hover:from-blue-500/80 hover:to-cyan-500/80 disabled:from-gray-600/50 disabled:to-gray-700/50 rounded-xl font-medium transition-all duration-200 disabled:opacity-50 border border-blue-500/30 backdrop-blur-sm"
+                        >
+                          {isScanning ? (
+                            <>
+                              <div className="w-5 h-5 mr-2 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                              Analyzing Code...
+                            </>
+                          ) : (
+                            <>
+                              <PlayIcon className="w-5 h-5 mr-2" />
+                              Analyze Code
+                            </>
+                          )}
+                        </button>
+                        {isScanning && (
+                          <button
+                            onClick={() => setIsScanning(false)}
+                            className="flex items-center px-6 py-3 bg-red-600/80 hover:bg-red-500/80 rounded-xl font-medium transition-all duration-200 border border-red-500/30 backdrop-blur-sm"
+                          >
+                            <StopIcon className="w-5 h-5 mr-2" />
+                            Cancel
+                          </button>
+                        )}
+                      </div>
+                      {scanResults.length > 0 && (
+                        <button
+                          onClick={saveReport}
+                          className="flex items-center px-4 py-3 bg-blue-600/80 hover:bg-blue-500/80 rounded-xl font-medium transition-all duration-200 border border-blue-500/30 backdrop-blur-sm"
+                        >
+                          <DocumentTextIcon className="w-4 h-4 mr-2" />
+                          Save Report
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* GitHub Repository Tab */}
+                {scanType === 'github' && (
+                  <div className="backdrop-blur-xl bg-white/5 border border-green-500/20 rounded-2xl p-6 hover:border-green-400/40 transition-all duration-300">
+                    <div className="flex items-center mb-6">
+                      <CommandLineIcon className="w-6 h-6 text-green-400 mr-3" />
+                      <h3 className="text-xl font-semibold text-white">GitHub Repository Scanner</h3>
+                    </div>
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-300 mb-2">
+                          Repository URL
+                        </label>
+                        <input
+                          type="url"
+                          value={repositoryUrl}
+                          onChange={(e) => setRepositoryUrl(e.target.value)}
+                          placeholder="https://github.com/username/repository"
+                          className="w-full bg-gray-900/50 border border-gray-600/50 rounded-xl px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500/50 focus:border-green-500/50"
+                        />
+                      </div>
+                      <div className="bg-green-900/20 border border-green-500/30 rounded-xl p-4">
+                        <h4 className="text-green-400 font-medium mb-2">Security Analysis Includes:</h4>
+                        <ul className="text-sm text-gray-300 space-y-1">
+                          <li>• Source code vulnerabilities</li>
+                          <li>• Dependency security issues</li>
+                          <li>• Secret detection in history</li>
+                          <li>• Configuration security</li>
+                        </ul>
+                      </div>
+                    </div>
+                    <div className="flex gap-3 mt-6">
                       <button
                         onClick={startScan}
-                        disabled={isScanning || !codeInput.trim()}
-                        className="flex items-center px-6 py-3 bg-gradient-to-r from-blue-600/80 to-cyan-600/80 hover:from-blue-500/80 hover:to-cyan-500/80 disabled:from-gray-600/50 disabled:to-gray-700/50 rounded-xl font-medium transition-all duration-200 disabled:opacity-50 border border-blue-500/30 backdrop-blur-sm"
+                        disabled={isScanning || !repositoryUrl.trim()}
+                        className="flex items-center px-6 py-3 bg-gradient-to-r from-green-600/80 to-emerald-600/80 hover:from-green-500/80 hover:to-emerald-500/80 disabled:from-gray-600/50 disabled:to-gray-700/50 rounded-xl font-medium transition-all duration-200 disabled:opacity-50 border border-green-500/30 backdrop-blur-sm"
                       >
                         {isScanning ? (
                           <>
                             <div className="w-5 h-5 mr-2 border-2 border-white/20 border-t-white rounded-full animate-spin" />
-                            Scanning...
+                            Scanning Repository...
                           </>
                         ) : (
                           <>
                             <PlayIcon className="w-5 h-5 mr-2" />
-                            Execute Scan
+                            Scan Repository
                           </>
                         )}
                       </button>
-                      {isScanning && (
-                        <button
-                          onClick={() => setIsScanning(false)}
-                          className="flex items-center px-6 py-3 bg-red-600/80 hover:bg-red-500/80 rounded-xl font-medium transition-all duration-200 border border-red-500/30 backdrop-blur-sm"
-                        >
-                          <StopIcon className="w-5 h-5 mr-2" />
-                          Kill Process
-                        </button>
-                      )}
                     </div>
-                    {scanResults.length > 0 && (
-                      <button
-                        onClick={saveReport}
-                        className="flex items-center px-4 py-3 bg-blue-600/80 hover:bg-blue-500/80 rounded-xl font-medium transition-all duration-200 border border-blue-500/30 backdrop-blur-sm"
-                      >
-                        <EyeIcon className="w-4 h-4 mr-2" />
-                        Save Report
-                      </button>
-                    )}
                   </div>
-                </div>
+                )}
+
+                {/* AWS/S3 Tab */}
+                {scanType === 'aws' && (
+                  <div className="backdrop-blur-xl bg-white/5 border border-orange-500/20 rounded-2xl p-6 hover:border-orange-400/40 transition-all duration-300">
+                    <div className="flex items-center mb-6">
+                      <CloudIcon className="w-6 h-6 text-orange-400 mr-3" />
+                      <h3 className="text-xl font-semibold text-white">AWS Services Scanner</h3>
+                    </div>
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-300 mb-2">
+                          AWS Resource (S3 Bucket, EC2 Instance, etc.)
+                        </label>
+                        <input
+                          type="text"
+                          value={s3BucketUrl}
+                          onChange={(e) => setS3BucketUrl(e.target.value)}
+                          placeholder="my-bucket-name or i-1234567890abcdef0"
+                          className="w-full bg-gray-900/50 border border-gray-600/50 rounded-xl px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500/50"
+                        />
+                        <p className="text-xs text-gray-500 mt-2">Enter S3 bucket name, EC2 instance ID, or other AWS resource identifier</p>
+                      </div>
+                      <div className="bg-orange-900/20 border border-orange-500/30 rounded-xl p-4">
+                        <h4 className="text-orange-400 font-medium mb-2">AWS Security Checks Include:</h4>
+                        <ul className="text-sm text-gray-300 space-y-1">
+                          <li>• S3 bucket permissions & encryption</li>
+                          <li>• EC2 security groups & patches</li>
+                          <li>• IAM roles & policies</li>
+                          <li>• Lambda function security</li>
+                        </ul>
+                      </div>
+                    </div>
+                    <div className="flex gap-3 mt-6">
+                      <button
+                        onClick={startScan}
+                        disabled={isScanning || !s3BucketUrl.trim()}
+                        className="flex items-center px-6 py-3 bg-gradient-to-r from-orange-600/80 to-red-600/80 hover:from-orange-500/80 hover:to-red-500/80 disabled:from-gray-600/50 disabled:to-gray-700/50 rounded-xl font-medium transition-all duration-200 disabled:opacity-50 border border-orange-500/30 backdrop-blur-sm"
+                      >
+                        {isScanning ? (
+                          <>
+                            <div className="w-5 h-5 mr-2 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                            Scanning AWS Resource...
+                          </>
+                        ) : (
+                          <>
+                            <PlayIcon className="w-5 h-5 mr-2" />
+                            Scan AWS Resource
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Docker Container Tab */}
+                {scanType === 'docker' && (
+                  <div className="backdrop-blur-xl bg-white/5 border border-purple-500/20 rounded-2xl p-6 hover:border-purple-400/40 transition-all duration-300">
+                    <div className="flex items-center mb-6">
+                      <ServerIcon className="w-6 h-6 text-purple-400 mr-3" />
+                      <h3 className="text-xl font-semibold text-white">Docker Container Scanner</h3>
+                    </div>
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-300 mb-2">
+                          Docker Image
+                        </label>
+                        <input
+                          type="text"
+                          value={dockerImageUrl}
+                          onChange={(e) => setDockerImageUrl(e.target.value)}
+                          placeholder="nginx:latest or docker.io/username/image:tag"
+                          className="w-full bg-gray-900/50 border border-gray-600/50 rounded-xl px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50"
+                        />
+                        <p className="text-xs text-gray-500 mt-2">Support for Docker Hub, private registries, and local images</p>
+                      </div>
+                      <div className="bg-purple-900/20 border border-purple-500/30 rounded-xl p-4">
+                        <h4 className="text-purple-400 font-medium mb-2">Container Security Analysis:</h4>
+                        <ul className="text-sm text-gray-300 space-y-1">
+                          <li>• Base image vulnerabilities</li>
+                          <li>• Configuration security</li>
+                          <li>• Package vulnerabilities</li>
+                          <li>• Runtime security issues</li>
+                        </ul>
+                      </div>
+                    </div>
+                    <div className="flex gap-3 mt-6">
+                      <button
+                        onClick={startScan}
+                        disabled={isScanning || !dockerImageUrl.trim()}
+                        className="flex items-center px-6 py-3 bg-gradient-to-r from-purple-600/80 to-indigo-600/80 hover:from-purple-500/80 hover:to-indigo-500/80 disabled:from-gray-600/50 disabled:to-gray-700/50 rounded-xl font-medium transition-all duration-200 disabled:opacity-50 border border-purple-500/30 backdrop-blur-sm"
+                      >
+                        {isScanning ? (
+                          <>
+                            <div className="w-5 h-5 mr-2 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                            Scanning Container...
+                          </>
+                        ) : (
+                          <>
+                            <PlayIcon className="w-5 h-5 mr-2" />
+                            Scan Container
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                )}
               </>
             )}
 
@@ -373,7 +641,7 @@ export function SecurityScanner() {
               <div className="backdrop-blur-xl bg-white/5 border border-white/10 rounded-2xl p-6">
                 <h3 className="text-xl font-semibold text-white mb-4">Security Engines</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {engines.map((engine, index) => {
+                  {getEnginesForScanType(scanType).map((engine, index) => {
                     const IconComponent = engine.icon
                     return (
                       <div key={engine.name} className="flex items-center space-x-3 p-3 bg-black/20 border border-cyan-500/20 rounded-xl">
@@ -490,93 +758,151 @@ export function SecurityScanner() {
             )}
           </div>
 
-          {/* Sidebar */}
-          <div className="space-y-6">
-            {/* Security Score */}
-            <div className="backdrop-blur-xl bg-white/5 border border-white/10 rounded-2xl p-6">
-              <h3 className="text-xl font-semibold text-white mb-4 flex items-center">
-                <ShieldCheckIcon className="w-6 h-6 mr-2 text-green-400" />
-                Security Score
-              </h3>
-              <div className="text-center">
-                <div className="text-4xl font-bold text-cyan-400 mb-2">
-                  {scanResults.length === 0 ? '--' : securityScore}
+          {/* AI Assistant Sidebar - Larger and Better Structured */}
+          <div className="xl:col-span-2 space-y-6">
+            {/* Security Score - Compact */}
+            <div className="backdrop-blur-xl bg-white/5 border border-white/10 rounded-2xl p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center">
+                  <ShieldCheckIcon className="w-5 h-5 mr-2 text-green-400" />
+                  <span className="text-white font-medium">Security Score</span>
                 </div>
-                <div className="text-gray-400 text-sm">
-                  {scanResults.length === 0 ? 'Run scan to calculate' : `Based on ${scanResults.length} findings`}
-                </div>
-                <div className="w-full bg-gray-700/50 rounded-full h-3 mt-4">
-                  <div 
-                    className="bg-gradient-to-r from-cyan-500 to-blue-500 h-3 rounded-full transition-all duration-500" 
-                    style={{ width: scanResults.length === 0 ? '0%' : `${securityScore}%` }} 
-                  />
+                <div className="text-right">
+                  <div className="text-2xl font-bold text-cyan-400">
+                    {scanResults.length === 0 ? '--' : securityScore}
+                  </div>
+                  <div className="text-xs text-gray-400">
+                    {scanResults.length === 0 ? 'No scan data' : `${scanResults.length} issues`}
+                  </div>
                 </div>
               </div>
             </div>
 
-            {/* AI Assistant */}
-            <div className="backdrop-blur-xl bg-white/5 border border-white/10 rounded-2xl p-6">
-              <h3 className="text-xl font-semibold text-white mb-4 flex items-center">
-                <CpuChipIcon className="w-6 h-6 mr-2 text-blue-400" />
-                AI Assistant
-              </h3>
-              
-              <div className="h-80 bg-black/20 border border-blue-400/20 rounded-xl p-4 overflow-y-auto mb-4 space-y-3">
-                {chatMessages.map((msg) => (
-                  <div key={msg.id} className={`${msg.role === 'user' ? 'ml-4' : 'mr-4'}`}>
-                    <div className={`p-3 rounded-xl backdrop-blur-sm ${
-                      msg.role === 'user' 
-                        ? 'bg-blue-600/20 border border-blue-500/30 text-blue-100' 
-                        : 'bg-white/10 border border-white/20 text-gray-100'
-                    }`}>
-                      <div className="flex items-center mb-1">
-                        <span className="font-medium text-xs">
-                          {msg.role === 'user' ? 'You' : 'AI Assistant'}
-                        </span>
-                        <span className="text-xs text-gray-400 ml-2">
-                          {msg.timestamp.toLocaleTimeString()}
-                        </span>
-                      </div>
-                      <div className="text-sm whitespace-pre-wrap">{msg.content}</div>
+            {/* Enhanced AI Assistant */}
+            <div className="backdrop-blur-xl bg-white/5 border border-white/10 rounded-2xl overflow-hidden">
+              <div className="bg-gradient-to-r from-blue-600/20 to-purple-600/20 border-b border-white/10 p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center">
+                    <CpuChipIcon className="w-6 h-6 mr-3 text-blue-400" />
+                    <div>
+                      <h3 className="text-lg font-semibold text-white">SentinelHub AI</h3>
+                      <p className="text-xs text-gray-400">Live Security Recommendations</p>
                     </div>
                   </div>
-                ))}
-                {isTyping && (
-                  <div className="mr-4">
-                    <div className="bg-white/10 border border-white/20 text-gray-100 p-3 rounded-xl backdrop-blur-sm">
-                      <div className="flex items-center">
-                        <span className="font-medium text-xs">AI Assistant</span>
-                        <div className="flex space-x-1 ml-2">
-                          <div className="w-1 h-1 bg-blue-400 rounded-full animate-bounce"></div>
-                          <div className="w-1 h-1 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                          <div className="w-1 h-1 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                  <div className="flex items-center space-x-2 text-xs">
+                    <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                    <span className="text-green-400 font-medium">Online</span>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="p-4">
+                {/* Chat Area - Much Larger */}
+                <div className="h-96 bg-black/20 border border-blue-400/20 rounded-xl p-4 overflow-y-auto mb-4 space-y-4 scrollbar-thin scrollbar-thumb-blue-600/50 scrollbar-track-gray-800/30">
+                  {chatMessages.map((msg) => (
+                    <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                      <div className={`max-w-[85%] ${msg.role === 'user' ? 'ml-4' : 'mr-4'}`}>
+                        <div className={`p-4 rounded-2xl backdrop-blur-sm ${
+                          msg.role === 'user' 
+                            ? 'bg-gradient-to-br from-blue-600/30 to-cyan-600/30 border border-blue-500/40 text-blue-100' 
+                            : 'bg-gradient-to-br from-gray-800/60 to-gray-700/60 border border-gray-600/40 text-gray-100'
+                        }`}>
+                          <div className="flex items-center mb-2">
+                            <div className={`w-2 h-2 rounded-full mr-2 ${
+                              msg.role === 'user' ? 'bg-blue-400' : 'bg-green-400'
+                            }`}></div>
+                            <span className="font-semibold text-sm">
+                              {msg.role === 'user' ? 'You' : 'SentinelHub AI'}
+                            </span>
+                            <span className="text-xs text-gray-400 ml-auto">
+                              {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                          </div>
+                          <div className="text-sm whitespace-pre-wrap leading-relaxed">{msg.content}</div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                )}
-              </div>
+                  ))}
+                  
+                  {isTyping && (
+                    <div className="flex justify-start">
+                      <div className="mr-4 max-w-[85%]">
+                        <div className="bg-gradient-to-br from-gray-800/60 to-gray-700/60 border border-gray-600/40 text-gray-100 p-4 rounded-2xl backdrop-blur-sm">
+                          <div className="flex items-center mb-2">
+                            <div className="w-2 h-2 bg-green-400 rounded-full mr-2 animate-pulse"></div>
+                            <span className="font-semibold text-sm">SentinelHub AI</span>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <div className="flex space-x-1">
+                              <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce"></div>
+                              <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                              <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                            </div>
+                            <span className="text-xs text-gray-400">Analyzing...</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
 
-              <div className="flex space-x-2">
-                <input
-                  type="text"
-                  value={chatInput}
-                  onChange={(e) => setChatInput(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
-                  placeholder="Ask about vulnerabilities..."
-                  className="flex-1 bg-black/20 border border-blue-400/20 rounded-xl px-3 py-2 text-white text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
-                />
-                <button
-                  onClick={sendMessage}
-                  disabled={!chatInput.trim() || isTyping}
-                  className="px-4 py-2 bg-blue-600/80 hover:bg-blue-700/80 disabled:bg-gray-600/50 disabled:opacity-50 rounded-xl transition-colors border border-blue-500/30 backdrop-blur-sm"
-                >
-                  <PaperAirplaneIcon className="w-4 h-4 text-white" />
-                </button>
-              </div>
-              
-              <div className="mt-3 text-xs text-blue-400 opacity-60 text-center">
-                Context: {scanType.toUpperCase()} | Active Tab: {activeTab.toUpperCase()} | Results: {scanResults.length}
+                {/* Enhanced Input Area */}
+                <div className="space-y-3">
+                  <div className="flex items-center space-x-2 text-xs text-gray-400">
+                    <div className="flex items-center space-x-1">
+                      <span className="w-2 h-2 bg-cyan-400 rounded-full"></span>
+                      <span>Context: {scanType.toUpperCase()}</span>
+                    </div>
+                    <div className="flex items-center space-x-1">
+                      <span className="w-2 h-2 bg-orange-400 rounded-full"></span>
+                      <span>Tab: {activeTab.toUpperCase()}</span>
+                    </div>
+                    <div className="flex items-center space-x-1">
+                      <span className="w-2 h-2 bg-red-400 rounded-full"></span>
+                      <span>Issues: {scanResults.length}</span>
+                    </div>
+                  </div>
+                  
+                  <div className="flex space-x-3">
+                    <input
+                      type="text"
+                      value={chatInput}
+                      onChange={(e) => setChatInput(e.target.value)}
+                      onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
+                      placeholder="Ask about vulnerabilities, get remediation steps, or request analysis..."
+                      className="flex-1 bg-black/30 border border-blue-400/30 rounded-xl px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-200"
+                    />
+                    <button
+                      onClick={sendMessage}
+                      disabled={!chatInput.trim() || isTyping}
+                      className="px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 disabled:from-gray-600 disabled:to-gray-700 disabled:opacity-50 rounded-xl transition-all duration-200 border border-blue-500/30 backdrop-blur-sm group"
+                    >
+                      <PaperAirplaneIcon className="w-5 h-5 text-white group-hover:scale-110 transition-transform" />
+                    </button>
+                  </div>
+                  
+                  {/* Quick Action Suggestions */}
+                  <div className="flex flex-wrap gap-2">
+                    <button 
+                      onClick={() => setChatInput('explain vulnerabilities')}
+                      className="px-3 py-1 bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/30 rounded-full text-xs text-blue-300 transition-colors"
+                    >
+                      Explain Issues
+                    </button>
+                    <button 
+                      onClick={() => setChatInput('how to fix')}
+                      className="px-3 py-1 bg-green-600/20 hover:bg-green-600/30 border border-green-500/30 rounded-full text-xs text-green-300 transition-colors"
+                    >
+                      Get Fixes
+                    </button>
+                    <button 
+                      onClick={() => setChatInput('report summary')}
+                      className="px-3 py-1 bg-purple-600/20 hover:bg-purple-600/30 border border-purple-500/30 rounded-full text-xs text-purple-300 transition-colors"
+                    >
+                      Summary
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           </div>

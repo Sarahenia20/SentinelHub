@@ -182,44 +182,6 @@ export function SecurityReports() {
     <div className="min-h-screen text-white">
       <div className="container mx-auto px-6 py-8">
 
-        {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <div className="backdrop-blur-xl bg-white/5 border border-white/10 rounded-2xl p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-white">Total Scans</h3>
-              <ChartBarIcon className="w-6 h-6 text-cyan-400" />
-            </div>
-            <div className="text-3xl font-bold text-cyan-400">{filteredSessions.length}</div>
-            <div className="text-sm text-gray-400 mt-2">Last 7 days</div>
-          </div>
-
-          <div className="backdrop-blur-xl bg-white/5 border border-white/10 rounded-2xl p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-white">Avg Score</h3>
-              <ShieldCheckIcon className="w-6 h-6 text-green-400" />
-            </div>
-            <div className={`text-3xl font-bold ${getScoreColor(averageScore)}`}>{averageScore}/100</div>
-            <div className="text-sm text-gray-400 mt-2">Security posture</div>
-          </div>
-
-          <div className="backdrop-blur-xl bg-white/5 border border-white/10 rounded-2xl p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-white">Critical Issues</h3>
-              <ExclamationTriangleIcon className="w-6 h-6 text-red-400" />
-            </div>
-            <div className="text-3xl font-bold text-red-400">{totalVulnerabilities.critical}</div>
-            <div className="text-sm text-gray-400 mt-2">Needs immediate attention</div>
-          </div>
-
-          <div className="backdrop-blur-xl bg-white/5 border border-white/10 rounded-2xl p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-white">High Issues</h3>
-              <CpuChipIcon className="w-6 h-6 text-orange-400" />
-            </div>
-            <div className="text-3xl font-bold text-orange-400">{totalVulnerabilities.high}</div>
-            <div className="text-sm text-gray-400 mt-2">Requires attention</div>
-          </div>
-        </div>
 
         {/* Filters and Controls */}
         <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
