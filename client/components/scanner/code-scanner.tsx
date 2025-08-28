@@ -169,8 +169,7 @@ export function CodeScanner() {
 
       // Use mock data for now
       console.log('Using mock scan data - backend temporarily disabled');
-      const mockResults = await runMockScan();
-      setScanResults(mockResults);
+      runMockScan();
     } finally {
       setIsScanning(false);
     }

@@ -1,12 +1,8 @@
-import { Inter } from 'next/font/google'
 import './css/style.css'
 import { ClerkProvider } from '@clerk/nextjs'
 
-const inter = Inter({
-  subsets: ['latin'],
-  variable: '--font-inter',
-  display: 'swap'
-})
+// Use system fonts as fallback to avoid network dependency
+const fontClass = 'font-sans'
 
 export const metadata = {
   title: 'SentinelHub - DevOps Security Platform',
@@ -22,7 +18,7 @@ export default function RootLayout({
     <ClerkProvider>
       <html lang="en">
         <body
-          className={`${inter.variable} font-inter antialiased bg-gray-900 text-white tracking-tight`}
+          className={`${fontClass} antialiased bg-gray-900 text-white tracking-tight`}
         >
           <div className="flex flex-col min-h-screen overflow-hidden supports-[overflow:clip]:overflow-clip">
             {children}

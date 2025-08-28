@@ -28,7 +28,7 @@ const nextConfig = {
   // Experimental flags for Next.js 15 + Clerk compatibility
   experimental: {
     // Suppress dynamic API warnings from Clerk until they update for Next.js 15
-    dynamicIO: false,
+    cacheComponents: false,
   },
   
   // Logging configuration to reduce noise from Clerk's headers() usage

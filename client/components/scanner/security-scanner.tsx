@@ -69,6 +69,14 @@ export function SecurityScanner() {
   const [chatInput, setChatInput] = useState('')
   const [isTyping, setIsTyping] = useState(false)
 
+  const engines = [
+    { name: 'ESLint Security' },
+    { name: 'Semgrep' },
+    { name: 'Secret Scanner' },
+    { name: 'Trivy' },
+    { name: 'SonarQube' }
+  ]
+
   const getEnginesForScanType = (type: string) => {
     switch (type) {
       case 'code':
