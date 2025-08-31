@@ -1,0 +1,228 @@
+[
+  {
+    "id": "py-exec-injection",
+    "pattern": "exec\\s*\\([^)]*(?:request\\.|flask\\.request\\.|django\\.request\\.|bottle\\.request\\.|fastapi\\.Request)[^)]*\\)",
+    "message": "Code injection vulnerability: exec() with user input",
+    "severity": "critical",
+    "category": "code-injection",
+    "cwe": "CWE-94",
+    "owasp": "A03-Injection",
+    "baseConfidence": 0.95,
+    "recommendation": "Never use exec() with user input. Use safe alternatives or validate input strictly."
+  },
+  {
+    "id": "py-eval-injection",
+    "pattern": "eval\\s*\\([^)]*(?:request\\.|flask\\.request\\.|django\\.request\\.|bottle\\.request\\.|fastapi\\.Request)[^)]*\\)",
+    "message": "Code injection vulnerability: eval() with user input",
+    "severity": "critical",
+    "category": "code-injection",
+    "cwe": "CWE-94",
+    "baseConfidence": 0.95,
+    "recommendation": "Never use eval() with user input. Use json.loads() for JSON or ast.literal_eval() for safe evaluation."
+  },
+  {
+    "id": "py-pickle-deserialization",
+    "pattern": "pickle\\.loads?\\s*\\([^)]*(?:request\\.|flask\\.request\\.|django\\.request\\.|bottle\\.request\\.|fastapi\\.Request)[^)]*\\)",
+    "message": "Deserialization vulnerability: pickle with user input",
+    "severity": "critical",
+    "category": "deserialization",
+    "cwe": "CWE-502",
+    "owasp": "A08-Software and Data Integrity Failures",
+    "baseConfidence": 0.9,
+    "recommendation": "Use json.loads() or implement safe serialization formats. Never unpickle untrusted data."
+  },
+  {
+    "id": "py-sql-injection-format",
+    "pattern": "(?:SELECT|INSERT|UPDATE|DELETE|DROP|CREATE)[\\s\\S]*?(?:%s|%d|\\{[^}]*\\}|format\\(|f['\"])[\\s\\S]*?(?:request\\.|flask\\.request\\.|django\\.request\\.)",
+    "message": "SQL injection vulnerability: String formatting in SQL queries",
+    "severity": "critical",
+    "category": "sql-injection",
+    "cwe": "CWE-89",
+    "owasp": "A03-Injection",
+    "baseConfidence": 0.85,
+    "recommendation": "Use parameterized queries with ? placeholders or ORM methods.",
+    "flags": "gi"
+  },
+  {
+    "id": "py-command-injection",
+    "pattern": "(?:os\\.system|subprocess\\.call|subprocess\\.run|subprocess\\.Popen)\\s*\\([^)]*(?:\\+|%|format|f['\"])[^)]*(?:request\\.|flask\\.request\\.|django\\.request\\.)",
+    "message": "Command injection vulnerability: Process execution with user input",
+    "severity": "critical",
+    "category": "command-injection",
+    "cwe": "CWE-78",
+    "baseConfidence": 0.9,
+    "recommendation": "Use subprocess with shell=False and array arguments. Validate all user input."
+  },
+  {
+    "id": "py-path-traversal",
+    "pattern": "open\\s*\\([^)]*(?:request\\.|flask\\.request\\.|django\\.request\\.)(?![^)]*(?:os\\.path\\.join|pathlib|secure_filename))",
+    "message": "Path traversal vulnerability: File operations with unsanitized user input",
+    "severity": "high",
+    "category": "path-traversal",
+    "cwe": "CWE-22",
+    "baseConfidence": 0.8,
+    "recommendation": "Use os.path.join(), validate paths, and restrict to allowed directories."
+  },
+  {
+    "id": "py-yaml-load-unsafe",
+    "pattern": "yaml\\.load\\s*\\([^)]*(?:request\\.|flask\\.request\\.|django\\.request\\.)(?![^)]*Loader\\s*=\\s*yaml\\.SafeLoader)",
+    "message": "YAML deserialization vulnerability: unsafe yaml.load() with user input",
+    "severity": "critical",
+    "category": "deserialization",
+    "cwe": "CWE-502",
+    "baseConfidence": 0.9,
+    "recommendation": "Use yaml.safe_load() instead of yaml.load() for untrusted input."
+  },
+  {
+    "id": "py-xml-external-entity",
+    "pattern": "(?:xml\\.etree\\.ElementTree\\.parse|xml\\.etree\\.ElementTree\\.fromstring|xml\\.dom\\.minidom\\.parse)\\s*\\([^)]*(?:request\\.|flask\\.request\\.|django\\.request\\.)",
+    "message": "XXE vulnerability: XML parsing with user input",
+    "severity": "high",
+    "category": "xxe",
+    "cwe": "CWE-611",
+    "owasp": "A05-Security Misconfiguration",
+    "baseConfidence": 0.8,
+    "recommendation": "Use defusedxml library or configure XML parser to disable external entity processing."
+  },
+  {
+    "id": "py-template-injection-jinja2",
+    "pattern": "(?:Template|Environment)\\s*\\([^)]*\\)\\.render\\s*\\([^)]*(?:request\\.|flask\\.request\\.|django\\.request\\.)",
+    "message": "Template injection vulnerability: Jinja2 template with user input",
+    "severity": "high",
+    "category": "template-injection",
+    "cwe": "CWE-94",
+    "baseConfidence": 0.8,
+    "recommendation": "Use template sandboxing and validate user input before rendering."
+  },
+  {
+    "id": "py-django-raw-query",
+    "pattern": "(?:\\.raw\\s*\\(|cursor\\.execute\\s*\\()[^)]*(?:\\+|%|format|f['\"])[^)]*(?:request\\.|django\\.request\\.)",
+    "message": "SQL injection vulnerability: Django raw query with user input",
+    "severity": "critical",
+    "category": "sql-injection",
+    "cwe": "CWE-89",
+    "baseConfidence": 0.9,
+    "recommendation": "Use Django ORM or parameterized raw queries with %s placeholders."
+  },
+  {
+    "id": "py-flask-debug-enabled",
+    "pattern": "app\\.run\\s*\\([^)]*debug\\s*=\\s*True[^)]*\\)",
+    "message": "Debug mode enabled in production Flask application",
+    "severity": "medium",
+    "category": "information-disclosure",
+    "cwe": "CWE-489",
+    "baseConfidence": 0.8,
+    "recommendation": "Disable debug mode in production environments."
+  },
+  {
+    "id": "py-django-debug-true",
+    "pattern": "DEBUG\\s*=\\s*True",
+    "message": "Django DEBUG setting enabled",
+    "severity": "medium",
+    "category": "information-disclosure",
+    "cwe": "CWE-489",
+    "baseConfidence": 0.8,
+    "recommendation": "Set DEBUG = False in production environments."
+  },
+  {
+    "id": "py-hardcoded-secret",
+    "pattern": "(?:SECRET_KEY|API_KEY|PASSWORD|TOKEN)\\s*=\\s*['\"][a-zA-Z0-9_-]{8,}['\"]",
+    "message": "Hardcoded secret detected in source code",
+    "severity": "high",
+    "category": "hardcoded-secret",
+    "cwe": "CWE-798",
+    "baseConfidence": 0.85,
+    "recommendation": "Use environment variables or secure configuration management for secrets."
+  },
+  {
+    "id": "py-weak-crypto-des",
+    "pattern": "(?:DES|Blowfish|RC4)\\.new\\s*\\(",
+    "message": "Weak cryptography: Using deprecated encryption algorithms",
+    "severity": "medium",
+    "category": "weak-crypto",
+    "cwe": "CWE-327",
+    "owasp": "A02-Cryptographic Failures",
+    "baseConfidence": 0.9,
+    "recommendation": "Use strong encryption algorithms like AES-256 with appropriate modes."
+  },
+  {
+    "id": "py-weak-hash-md5",
+    "pattern": "hashlib\\.(?:md5|sha1)\\s*\\(",
+    "message": "Weak cryptography: Using deprecated hash algorithms",
+    "severity": "low",
+    "category": "weak-crypto",
+    "cwe": "CWE-327",
+    "baseConfidence": 0.8,
+    "recommendation": "Use SHA-256, SHA-3, or other cryptographically secure hash functions."
+  },
+  {
+    "id": "py-insecure-random",
+    "pattern": "random\\.(?:random|randint|choice)\\s*\\(",
+    "message": "Insecure randomness: random module is not cryptographically secure",
+    "severity": "low",
+    "category": "weak-random",
+    "cwe": "CWE-338",
+    "baseConfidence": 0.6,
+    "recommendation": "Use secrets module for cryptographically secure random operations."
+  },
+  {
+    "id": "py-sql-alchemy-text-injection",
+    "pattern": "text\\s*\\([^)]*(?:\\+|%|format|f['\"])[^)]*(?:request\\.|flask\\.request\\.|django\\.request\\.)",
+    "message": "SQL injection vulnerability: SQLAlchemy text() with user input",
+    "severity": "critical",
+    "category": "sql-injection",
+    "cwe": "CWE-89",
+    "baseConfidence": 0.85,
+    "recommendation": "Use SQLAlchemy ORM or parameterized text() queries with bound parameters."
+  },
+  {
+    "id": "py-ldap-injection",
+    "pattern": "(?:search_s|search)\\s*\\([^)]*(?:\\+|%|format|f['\"])[^)]*(?:request\\.|flask\\.request\\.|django\\.request\\.)",
+    "message": "LDAP injection vulnerability: LDAP query with user input",
+    "severity": "high",
+    "category": "ldap-injection",
+    "cwe": "CWE-90",
+    "baseConfidence": 0.8,
+    "recommendation": "Escape LDAP special characters and validate user input."
+  },
+  {
+    "id": "py-cookie-security-missing",
+    "pattern": "set_cookie\\s*\\([^)]*(?!.*(?:secure\\s*=\\s*True|httponly\\s*=\\s*True))[^)]*\\)",
+    "message": "Cookie security attributes missing",
+    "severity": "low",
+    "category": "cookie-security",
+    "cwe": "CWE-1004",
+    "baseConfidence": 0.6,
+    "recommendation": "Set secure=True and httponly=True for sensitive cookies."
+  },
+  {
+    "id": "py-ssl-verification-disabled",
+    "pattern": "(?:verify\\s*=\\s*False|ssl_verify\\s*=\\s*False|CERT_NONE)",
+    "message": "SSL certificate verification disabled",
+    "severity": "medium",
+    "category": "ssl-misconfiguration",
+    "cwe": "CWE-295",
+    "baseConfidence": 0.8,
+    "recommendation": "Enable SSL certificate verification for secure connections."
+  },
+  {
+    "id": "py-django-sql-injection",
+    "pattern": "(?:filter|exclude|get|extra)\\s*\\([^)]*(?:\\+|%|format|f['\"])[^)]*(?:request\\.|django\\.request\\.)",
+    "message": "Potential SQL injection in Django ORM",
+    "severity": "high",
+    "category": "sql-injection",
+    "cwe": "CWE-89",
+    "baseConfidence": 0.7,
+    "recommendation": "Use Django ORM properly with field lookups or Q objects."
+  },
+  {
+    "id": "py-mass-assignment",
+    "pattern": "(?:Model|form)\\.(?:objects\\.create|save)\\s*\\([^)]*\\*\\*request\\.",
+    "message": "Mass assignment vulnerability: Directly using request data",
+    "severity": "medium",
+    "category": "mass-assignment",
+    "cwe": "CWE-915",
+    "baseConfidence": 0.7,
+    "recommendation": "Validate and whitelist allowed fields before mass assignment."
+  }
+]

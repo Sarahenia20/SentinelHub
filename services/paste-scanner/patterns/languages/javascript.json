@@ -1,0 +1,205 @@
+[
+  {
+    "id": "js-eval-injection",
+    "pattern": "eval\\s*\\([^)]*(?:req\\.|request\\.|params\\.|query\\.|process\\.argv)[^)]*\\)",
+    "message": "Code injection vulnerability: eval() with user input",
+    "severity": "critical",
+    "category": "code-injection",
+    "cwe": "CWE-94",
+    "owasp": "A03-Injection",
+    "baseConfidence": 0.95,
+    "highSpecificity": true,
+    "recommendation": "Never use eval() with user input. Use JSON.parse() for JSON data or implement a safe parser.",
+    "excludePatterns": [
+      "// SAFE:",
+      "// safe",
+      "eval\\s*\\(\\s*['\"][^'\"]*['\"]\\s*\\)"
+    ]
+  },
+  {
+    "id": "js-function-constructor-injection",
+    "pattern": "new\\s+Function\\s*\\([^)]*(?:req\\.|request\\.|params\\.|query\\.)[^)]*\\)",
+    "message": "Code injection vulnerability: Function constructor with user input",
+    "severity": "critical",
+    "category": "code-injection",
+    "cwe": "CWE-94",
+    "baseConfidence": 0.9,
+    "recommendation": "Avoid Function constructor with user input. Use predefined functions or safe alternatives."
+  },
+  {
+    "id": "js-sql-injection-concat",
+    "pattern": "(?:SELECT|INSERT|UPDATE|DELETE|DROP|CREATE)(?:[\\s\\S]*?)(?:\\+|\\$\\{|concat\\()(?:[\\s\\S]*?)(?:req\\.|request\\.|params\\.|query\\.)",
+    "message": "SQL injection vulnerability: Dynamic query construction",
+    "severity": "critical",
+    "category": "sql-injection",
+    "cwe": "CWE-89",
+    "owasp": "A03-Injection",
+    "baseConfidence": 0.9,
+    "recommendation": "Use parameterized queries, prepared statements, or an ORM with proper escaping.",
+    "flags": "gi"
+  },
+  {
+    "id": "js-nosql-injection",
+    "pattern": "\\$where[\\s]*:[\\s]*(?:req\\.|request\\.|params\\.|query\\.)",
+    "message": "NoSQL injection vulnerability: $where operator with user input",
+    "severity": "high",
+    "category": "nosql-injection",
+    "cwe": "CWE-943",
+    "baseConfidence": 0.85,
+    "recommendation": "Sanitize user input and avoid $where operator with user-controlled data."
+  },
+  {
+    "id": "js-xss-innerHTML",
+    "pattern": "\\.innerHTML\\s*=(?![\\s]*['\"][^'\"<>]*['\"])[\\s\\S]*?(?:req\\.|request\\.|params\\.|query\\.)",
+    "message": "XSS vulnerability: innerHTML with unsanitized user input",
+    "severity": "high",
+    "category": "xss",
+    "cwe": "CWE-79",
+    "owasp": "A03-Injection",
+    "baseConfidence": 0.85,
+    "recommendation": "Use textContent, createElement, or sanitize HTML input with a trusted library."
+  },
+  {
+    "id": "js-xss-document-write",
+    "pattern": "document\\.write\\s*\\([\\s\\S]*?(?:req\\.|request\\.|params\\.|query\\.)[\\s\\S]*?\\)",
+    "message": "XSS vulnerability: document.write() with user input",
+    "severity": "high",
+    "category": "xss",
+    "cwe": "CWE-79",
+    "baseConfidence": 0.8,
+    "recommendation": "Use DOM manipulation methods instead of document.write() and sanitize user input."
+  },
+  {
+    "id": "js-command-injection",
+    "pattern": "(?:exec|spawn|execSync|spawnSync)\\s*\\([\\s\\S]*?(?:\\+|\\$\\{|concat\\()[\\s\\S]*?(?:req\\.|request\\.|params\\.|query\\.)",
+    "message": "Command injection vulnerability: Process execution with user input",
+    "severity": "critical",
+    "category": "command-injection",
+    "cwe": "CWE-78",
+    "owasp": "A03-Injection",
+    "baseConfidence": 0.9,
+    "recommendation": "Validate and sanitize all user input. Use spawn() with array arguments instead of exec()."
+  },
+  {
+    "id": "js-path-traversal",
+    "pattern": "(?:readFile|writeFile|createReadStream|createWriteStream)\\s*\\([\\s\\S]*?(?:req\\.|request\\.|params\\.|query\\.)(?![\\s\\S]*(?:path\\.resolve|path\\.join|sanitize))",
+    "message": "Path traversal vulnerability: File operations with unsanitized user input",
+    "severity": "high",
+    "category": "path-traversal",
+    "cwe": "CWE-22",
+    "owasp": "A01-Broken Access Control",
+    "baseConfidence": 0.8,
+    "recommendation": "Use path.resolve() and validate file paths against allowed directories."
+  },
+  {
+    "id": "js-regex-dos",
+    "pattern": "new\\s+RegExp\\s*\\([\\s\\S]*?(?:req\\.|request\\.|params\\.|query\\.)[\\s\\S]*?\\)",
+    "message": "ReDoS vulnerability: Dynamic regex construction with user input",
+    "severity": "medium",
+    "category": "regex-dos",
+    "cwe": "CWE-1333",
+    "baseConfidence": 0.7,
+    "recommendation": "Use pre-compiled regex patterns or validate user input against safe patterns."
+  },
+  {
+    "id": "js-prototype-pollution",
+    "pattern": "(?:Object\\.assign|\\.\\.\\.|merge|extend)\\s*\\([\\s\\S]*?(?:req\\.|request\\.|params\\.|query\\.)[\\s\\S]*?\\)",
+    "message": "Prototype pollution vulnerability: Object merge with user input",
+    "severity": "high",
+    "category": "prototype-pollution",
+    "cwe": "CWE-1321",
+    "baseConfidence": 0.75,
+    "recommendation": "Validate object keys and use Object.create(null) for maps. Consider using Map instead of objects."
+  },
+  {
+    "id": "js-weak-crypto",
+    "pattern": "(?:createHash|createCipher)\\s*\\([\\s]*['\"](?:md5|sha1|des|rc4)['\"]",
+    "message": "Weak cryptography: Using deprecated cryptographic algorithms",
+    "severity": "medium",
+    "category": "weak-crypto",
+    "cwe": "CWE-327",
+    "owasp": "A02-Cryptographic Failures",
+    "baseConfidence": 0.9,
+    "recommendation": "Use strong cryptographic algorithms like SHA-256, SHA-3, or AES-256."
+  },
+  {
+    "id": "js-insecure-random",
+    "pattern": "Math\\.random\\s*\\(\\)",
+    "message": "Insecure randomness: Math.random() is not cryptographically secure",
+    "severity": "low",
+    "category": "weak-random",
+    "cwe": "CWE-338",
+    "baseConfidence": 0.6,
+    "recommendation": "Use crypto.randomBytes() or crypto.getRandomValues() for security-sensitive operations."
+  },
+  {
+    "id": "js-hardcoded-secret",
+    "pattern": "(?:api[_-]?key|secret|token|password)[\\s]*[=:]\\s*['\"][a-zA-Z0-9_-]{8,}['\"]",
+    "message": "Hardcoded secret detected in source code",
+    "severity": "high",
+    "category": "hardcoded-secret",
+    "cwe": "CWE-798",
+    "baseConfidence": 0.8,
+    "recommendation": "Use environment variables, configuration files, or secure vaults for secrets."
+  },
+  {
+    "id": "js-cors-wildcard",
+    "pattern": "Access-Control-Allow-Origin[\\s]*:[\\s]*['\"]\\*['\"]",
+    "message": "CORS misconfiguration: Wildcard origin allows any domain",
+    "severity": "medium",
+    "category": "cors-misconfiguration",
+    "cwe": "CWE-942",
+    "baseConfidence": 0.85,
+    "recommendation": "Specify exact allowed origins instead of using wildcard (*)."
+  },
+  {
+    "id": "js-jwt-no-verify",
+    "pattern": "jwt\\.decode\\s*\\([^,)]+\\s*\\)",
+    "message": "JWT token decoded without verification",
+    "severity": "medium",
+    "category": "authentication-bypass",
+    "cwe": "CWE-347",
+    "baseConfidence": 0.7,
+    "recommendation": "Use jwt.verify() to validate token signature and claims."
+  },
+  {
+    "id": "js-express-trust-proxy",
+    "pattern": "app\\.set\\s*\\([\\s]*['\"]trust\\s+proxy['\"][\\s]*,[\\s]*true\\s*\\)",
+    "message": "Express trust proxy enabled globally",
+    "severity": "low",
+    "category": "misconfiguration",
+    "cwe": "CWE-16",
+    "baseConfidence": 0.6,
+    "recommendation": "Configure trust proxy carefully and validate proxy headers."
+  },
+  {
+    "id": "js-helmet-disabled",
+    "pattern": "helmet\\s*\\(\\s*\\{[\\s\\S]*?:\\s*false[\\s\\S]*?\\}\\s*\\)",
+    "message": "Security headers disabled in Helmet configuration",
+    "severity": "low",
+    "category": "security-misconfiguration",
+    "cwe": "CWE-16",
+    "baseConfidence": 0.7,
+    "recommendation": "Review and enable appropriate security headers for your application."
+  },
+  {
+    "id": "js-express-no-rate-limit",
+    "pattern": "app\\.(?:get|post|put|delete|patch|use)\\s*\\([\\s\\S]*?(?:req\\.|request\\.)(?![\\s\\S]*rate[_-]?limit)",
+    "message": "Route without rate limiting detected",
+    "severity": "low",
+    "category": "dos-vulnerability",
+    "cwe": "CWE-770",
+    "baseConfidence": 0.5,
+    "recommendation": "Implement rate limiting for API endpoints to prevent abuse."
+  },
+  {
+    "id": "js-buffer-allocation",
+    "pattern": "new\\s+Buffer\\s*\\([^)]*(?:req\\.|request\\.|params\\.|query\\.)[^)]*\\)",
+    "message": "Buffer allocation with user input can cause memory exhaustion",
+    "severity": "medium",
+    "category": "memory-exhaustion",
+    "cwe": "CWE-770",
+    "baseConfidence": 0.75,
+    "recommendation": "Validate buffer size limits and use Buffer.alloc() with size validation."
+  }
+]

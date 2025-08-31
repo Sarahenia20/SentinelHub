@@ -1,0 +1,25 @@
+{
+  "name": "sentinelhub-paste-scanner",
+  "version": "1.0.0",
+  "description": "SentinelHub Paste Scanner Service - Advanced security scanning for pasted code",
+  "main": "index.js",
+  "scripts": {
+    "test": "node ../../test-paste-scanner.js",
+    "dev": "nodemon index.js"
+  },
+  "dependencies": {
+    "eslint": "^8.54.0",
+    "eslint-plugin-security": "^1.7.1",
+    "eslint-plugin-sonarjs": "^0.23.0",
+    "axios": "^1.6.2",
+    "uuid": "^9.0.1"
+  },
+  "keywords": [
+    "security",
+    "code-scanning",
+    "vulnerability-detection",
+    "paste-analysis"
+  ],
+  "author": "Sarah Henia - SentinelHub",
+  "license": "MIT"
+}

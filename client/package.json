@@ -1,0 +1,35 @@
+{
+  "name": "sentinel-hub",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@clerk/edge": "^1.12.0",
+    "@clerk/nextjs": "^5.1.0",
+    "@headlessui/react": "^2.2.6",
+    "@heroicons/react": "^2.2.0",
+    "@monaco-editor/react": "4.7.0",
+    "aos": "3.0.0-beta.6",
+    "next": "15.1.6",
+    "next-themes": "^0.4.6",
+    "react": "19.0.0",
+    "react-dom": "19.0.0",
+    "react-markdown": "^10.1.0",
+    "typescript": "^5.7.3"
+  },
+  "devDependencies": {
+    "@tailwindcss/forms": "^0.5.10",
+    "@tailwindcss/postcss": "^4.0.3",
+    "@types/aos": "^3.0.7",
+    "@types/node": "^22.13.0",
+    "@types/react": "19.1.8",
+    "postcss": "^8.5.1",
+    "prettier-plugin-tailwindcss": "^0.6.11",
+    "tailwindcss": "^4.0.3"
+  }
+}
