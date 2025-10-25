@@ -1,5 +1,7 @@
 const express = require('express');
 const ReportManager = require('../../services/report-manager');
+const complianceCalculator = require('../../services/reports/compliance-calculator');
+const securityIntelligence = require('../../services/reports/security-intelligence');
 const router = express.Router();
 
 // Initialize Report Manager
@@ -307,6 +309,211 @@ router.post('/generate', async (req, res) => {
     console.error('Background generation error:', error);
     res.status(500).json({
       error: 'Internal Server Error',
+      message: error.message
+    });
+  }
+});
+
+/**
+ * GET /api/reports/compliance/:pipelineId - Get compliance report for a scan
+ */
+router.get('/compliance/:pipelineId', async (req, res) => {
+  try {
+    const { pipelineId } = req.params;
+
+    let pipeline = null;
+
+    // Try database first
+    if (req.services?.database?.getPipeline) {
+      pipeline = await req.services.database.getPipeline(pipelineId);
+    }
+
+    // Fallback to report manager
+    if (!pipeline) {
+      const result = await reportManager.getReport(pipelineId);
+      if (result.success) {
+        pipeline = result.report;
+      }
+    }
+
+    if (!pipeline) {
+      return res.status(404).json({
+        success: false,
+        error: 'Pipeline not found',
+        pipelineId
+      });
+    }
+
+    // Calculate compliance
+    const scanResults = pipeline.scanResults || pipeline.scanResult || {};
+    const compliance = complianceCalculator.getComplianceReport(scanResults);
+
+    res.json({
+      success: true,
+      pipelineId,
+      compliance
+    });
+
+  } catch (error) {
+    console.error('Failed to get compliance report:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get compliance report',
+      message: error.message
+    });
+  }
+});
+
+/**
+ * GET /api/reports/intelligence/latest - Get security intelligence for latest scan
+ */
+router.get('/intelligence/latest', async (req, res) => {
+  try {
+    // Try to get most recent report from report manager
+    let latestReport = null;
+    let scanResults = null;
+
+    // First try database if available
+    if (req.services?.database?.getRecentPipelines) {
+      const pipelines = await req.services.database.getRecentPipelines(1);
+      if (pipelines.length > 0) {
+        latestReport = pipelines[0];
+        scanResults = latestReport.scanResults;
+      }
+    }
+
+    // Fallback to report manager
+    if (!scanResults) {
+      const reportsResult = await reportManager.listReports({ limit: 1, sortBy: 'timestamp', sortOrder: 'desc' });
+      if (reportsResult.reports && reportsResult.reports.length > 0) {
+        latestReport = reportsResult.reports[0];
+        scanResults = latestReport.scanResult || latestReport.scanResults;
+      }
+    }
+
+    // If still no data, return empty intelligence
+    if (!scanResults) {
+      return res.json({
+        success: true,
+        intelligence: {
+          breaches: [],
+          cves: [],
+          threats: [],
+          recommendations: [],
+          context: {}
+        },
+        message: 'No scans available yet. Run a scan to see security intelligence.'
+      });
+    }
+
+    console.log(`📊 Gathering intelligence for latest scan...`);
+
+    // Get security intelligence with external API enrichment
+    const intelligence = await securityIntelligence.getSecurityIntelligence(scanResults);
+
+    res.json({
+      success: true,
+      intelligence: {
+        breaches: intelligence.breachData || [],
+        cves: (intelligence.cveMatches || []).slice(0, 10),
+        threats: intelligence.threatIndicators || [],
+        recommendations: intelligence.recommendations || [],
+        context: intelligence.externalContext || {},
+        summary: securityIntelligence.getIntelligenceSummary ?
+          securityIntelligence.getIntelligenceSummary(intelligence) :
+          {
+            totalBreaches: (intelligence.breachData || []).length,
+            totalCves: (intelligence.cveMatches || []).length,
+            totalThreats: (intelligence.threatIndicators || []).length,
+            totalRecommendations: (intelligence.recommendations || []).length
+          }
+      },
+      basedOn: {
+        scanId: latestReport?.id || latestReport?.pipelineId || 'latest',
+        timestamp: latestReport?.timestamp || new Date().toISOString(),
+        scanType: latestReport?.type || latestReport?.scanType || 'unknown'
+      }
+    });
+
+  } catch (error) {
+    console.error('Failed to get intelligence:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get intelligence',
+      message: error.message
+    });
+  }
+});
+
+/**
+ * GET /api/reports/compliance/summary - Get overall compliance summary
+ */
+router.get('/compliance/summary', async (req, res) => {
+  try {
+    const { limit = 20 } = req.query;
+
+    const pipelines = await req.services.database.getRecentPipelines(parseInt(limit));
+
+    if (pipelines.length === 0) {
+      return res.json({
+        success: true,
+        summary: {
+          averages: { owasp: 0, nist: 0, iso27001: 0, overall: 0 },
+          trend: 'stable',
+          totalScans: 0
+        }
+      });
+    }
+
+    // Calculate compliance for each scan
+    const complianceData = pipelines.map(pipeline => {
+      const compliance = complianceCalculator.getComplianceReport(pipeline.scanResults || {});
+      return {
+        scanId: pipeline.pipelineId,
+        timestamp: pipeline.timestamp,
+        owasp: compliance.frameworks.owasp.score,
+        nist: compliance.frameworks.nist.score,
+        iso27001: compliance.frameworks.iso27001.score,
+        overall: compliance.overall.score
+      };
+    });
+
+    // Calculate averages
+    const avgCompliance = {
+      owasp: Math.round(complianceData.reduce((sum, c) => sum + c.owasp, 0) / complianceData.length),
+      nist: Math.round(complianceData.reduce((sum, c) => sum + c.nist, 0) / complianceData.length),
+      iso27001: Math.round(complianceData.reduce((sum, c) => sum + c.iso27001, 0) / complianceData.length),
+      overall: Math.round(complianceData.reduce((sum, c) => sum + c.overall, 0) / complianceData.length)
+    };
+
+    res.json({
+      success: true,
+      summary: {
+        averages: avgCompliance,
+        trend: 'stable',
+        totalScans: complianceData.length,
+        byFramework: {
+          owasp: {
+            current: complianceData[0]?.owasp || 0,
+            average: avgCompliance.owasp
+          },
+          nist: {
+            current: complianceData[0]?.nist || 0,
+            average: avgCompliance.nist
+          },
+          iso27001: {
+            current: complianceData[0]?.iso27001 || 0,
+            average: avgCompliance.iso27001
+          }
+        }
+      },
+      history: complianceData
+    });
+
+  } catch (error) {
+    console.error('Failed to get compliance summary:', error);
+    res.status(500).json({
+      error: 'Failed to get compliance summary',
       message: error.message
     });
   }

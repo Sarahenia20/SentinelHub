@@ -1,10 +1,14 @@
 const express = require('express');
 const router = express.Router();
+const SecurityPersona = require('../../services/ai-intelligence/security-persona');
 
 /**
  * Dashboard Routes
- * Analytics, metrics, and dashboard data endpoints
+ * Analytics, metrics, and dashboard data endpoints with AI personality
  */
+
+// Initialize AI Persona system
+const securityPersona = new SecurityPersona();
 
 // Get dashboard overview metrics
 router.get('/metrics', async (req, res) => {
@@ -20,6 +24,19 @@ router.get('/metrics', async (req, res) => {
     // Get recent pipeline activity
     const recentPipelines = await req.services.database.getRecentPipelines(10);
     
+    // Get AI persona greeting for dashboard
+    const latestScan = recentPipelines[0];
+    const personaType = req.query.persona || req.cookies?.preferredPersona || 'guardian';
+    let aiGreeting = null;
+
+    if (latestScan?.scanResults) {
+      try {
+        aiGreeting = await securityPersona.generateDashboardGreeting(latestScan.scanResults, personaType);
+      } catch (error) {
+        console.warn('Could not generate AI greeting:', error.message);
+      }
+    }
+
     const dashboardData = {
       overview: {
         totalScans: metrics.totalScans,
@@ -43,7 +60,7 @@ router.get('/metrics', async (req, res) => {
         id: pipeline.pipelineId,
         type: pipeline.scanType,
         timestamp: pipeline.timestamp,
-        riskLevel: pipeline.scanResults?.summary?.riskLevel || 
+        riskLevel: pipeline.scanResults?.summary?.riskLevel ||
                    pipeline.scanResults?.riskAssessment?.overall || 'unknown',
         findings: countFindings(pipeline.scanResults),
         status: pipeline.status
@@ -58,7 +75,8 @@ router.get('/metrics', async (req, res) => {
         conversationsStarted: await getConversationCount(req.services.database),
         aiRecommendations: await getAIRecommendationCount(req.services.database),
         topQuestions: await getTopSecurityQuestions(req.services.database)
-      }
+      },
+      aiPersona: aiGreeting
     };
     
     res.json(dashboardData);
@@ -503,10 +521,163 @@ function getAIInsightsAnalytics(pipelines) {
 
 function determineOverallHealth(healthChecks) {
   const statuses = healthChecks.map(h => h.status);
-  
+
   if (statuses.every(s => s === 'healthy')) return 'healthy';
   if (statuses.some(s => s === 'error')) return 'degraded';
   return 'partial';
 }
+
+// ============================================================================
+// AI PERSONA ENDPOINTS
+// ============================================================================
+
+// Get daily security tip with AI persona
+router.get('/ai/tip-of-the-day', async (req, res) => {
+  try {
+    const personaType = req.query.persona || 'sage';
+    const tip = await securityPersona.generateSecurityTip(personaType);
+
+    res.json(tip);
+  } catch (error) {
+    console.error('Failed to generate security tip:', error);
+    res.status(500).json({
+      error: 'Failed to generate security tip',
+      message: error.message
+    });
+  }
+});
+
+// Get AI-powered trend insights
+router.get('/ai/trend-insight', async (req, res) => {
+  try {
+    const personaType = req.query.persona || 'coach';
+
+    // Get latest two scans for comparison
+    const recentPipelines = await req.services.database.getRecentPipelines(2);
+
+    if (recentPipelines.length < 2) {
+      return res.json({
+        error: 'Insufficient data',
+        message: 'Need at least 2 scans for trend analysis'
+      });
+    }
+
+    const insight = await securityPersona.generateTrendInsight(
+      recentPipelines[0].scanResults,
+      recentPipelines[1].scanResults,
+      personaType
+    );
+
+    res.json(insight);
+  } catch (error) {
+    console.error('Failed to generate trend insight:', error);
+    res.status(500).json({
+      error: 'Failed to generate trend insight',
+      message: error.message
+    });
+  }
+});
+
+// Get AI-powered quick actions
+router.get('/ai/quick-actions', async (req, res) => {
+  try {
+    const personaType = req.query.persona || 'ninja';
+
+    // Get latest scan
+    const recentPipelines = await req.services.database.getRecentPipelines(1);
+
+    if (recentPipelines.length === 0) {
+      return res.json({
+        error: 'No scan data',
+        message: 'No scans available for analysis'
+      });
+    }
+
+    const actions = await securityPersona.generateQuickActions(
+      recentPipelines[0].scanResults,
+      personaType
+    );
+
+    res.json(actions);
+  } catch (error) {
+    console.error('Failed to generate quick actions:', error);
+    res.status(500).json({
+      error: 'Failed to generate quick actions',
+      message: error.message
+    });
+  }
+});
+
+// Get AI commentary on security score
+router.get('/ai/score-commentary', async (req, res) => {
+  try {
+    const personaType = req.query.persona || 'detective';
+
+    // Get dashboard analytics for security score
+    const analytics = await req.services.database.getDashboardAnalytics();
+    const securityScore = analytics?.overview?.securityScore || 50;
+
+    const commentary = await securityPersona.generateScoreCommentary(
+      securityScore,
+      personaType
+    );
+
+    res.json(commentary);
+  } catch (error) {
+    console.error('Failed to generate score commentary:', error);
+    res.status(500).json({
+      error: 'Failed to generate score commentary',
+      message: error.message
+    });
+  }
+});
+
+// Get list of available personas
+router.get('/ai/personas', (req, res) => {
+  try {
+    const personas = Object.entries(securityPersona.personas).map(([key, persona]) => ({
+      id: key,
+      name: persona.name,
+      emoji: persona.emoji,
+      style: persona.style,
+      traits: persona.traits
+    }));
+
+    res.json({
+      personas: personas,
+      default: 'guardian',
+      totalCount: personas.length
+    });
+  } catch (error) {
+    console.error('Failed to get personas:', error);
+    res.status(500).json({
+      error: 'Failed to get personas',
+      message: error.message
+    });
+  }
+});
+
+// Get random persona suggestion
+router.get('/ai/random-persona', (req, res) => {
+  try {
+    const randomType = securityPersona.getRandomPersona();
+    const persona = securityPersona.personas[randomType];
+
+    res.json({
+      id: randomType,
+      name: persona.name,
+      emoji: persona.emoji,
+      style: persona.style,
+      traits: persona.traits,
+      suggestion: `Try ${persona.name} ${persona.emoji} for a ${persona.style} security experience!`
+    });
+  } catch (error) {
+    console.error('Failed to get random persona:', error);
+    res.status(500).json({
+      error: 'Failed to get random persona',
+      message: error.message
+    });
+  }
+});
 
 module.exports = router;

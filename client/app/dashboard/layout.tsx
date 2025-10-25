@@ -21,6 +21,8 @@ import {
   ArrowRightOnRectangleIcon,
   ChevronDownIcon,
   UserIcon,
+  DocumentChartBarIcon,
+  ChartPieIcon,
 } from '@heroicons/react/24/outline'
 import { DashboardBackground } from '../../components/dashboard-background'
 
@@ -35,19 +37,35 @@ export default function DashboardLayout({
   const [themeToggled, setThemeToggled] = useState(false)
   const [userDropdownOpen, setUserDropdownOpen] = useState(false)
   const [isLoggingOut, setIsLoggingOut] = useState(false)
+  const [selectedRole, setSelectedRole] = useState('')
   const pathname = usePathname()
-  const router = useRouter()
 
   // Clerk hooks
   const { signOut, userId, isLoaded } = useAuth()
   const { user } = useUser()
 
+  // Listen for role changes from AI Persona
+  useEffect(() => {
+    const handleRoleChange = (event: any) => {
+      setSelectedRole(event.detail)
+    }
+
+    // Load initial role from session
+    const savedRole = sessionStorage.getItem('user_role')
+    if (savedRole) {
+      setSelectedRole(savedRole)
+    }
+
+    window.addEventListener('roleChanged', handleRoleChange)
+    return () => window.removeEventListener('roleChanged', handleRoleChange)
+  }, [])
+
   // Note: Authentication is handled by middleware, no client-side redirect needed
 
   const navigation = [
-    { name: 'Dashboard', href: '/dashboard', icon: HomeIcon },
     { name: 'Scanner', href: '/dashboard/scanner', icon: CpuChipIcon },
-    { name: 'Security Reports', href: '/dashboard/reports', icon: ChartBarIcon },
+    { name: 'Security Reports', href: '/dashboard/reports', icon: DocumentChartBarIcon },
+    { name: 'Analytics', href: '/dashboard/overview', icon: ChartPieIcon },
     { name: 'Settings', href: '/dashboard/settings', icon: Cog6ToothIcon },
   ]
 
@@ -56,15 +74,16 @@ export default function DashboardLayout({
     const path = pathname
     switch (path) {
       case '/dashboard':
-        return 'Security Dashboard'
       case '/dashboard/scanner':
         return 'Security Scanner'
       case '/dashboard/reports':
         return 'Security Reports'
+      case '/dashboard/overview':
+        return 'Analytics Dashboard'
       case '/dashboard/settings':
         return 'Settings'
       default:
-        return 'Dashboard'
+        return 'Scanner'
     }
   }
 
@@ -72,11 +91,12 @@ export default function DashboardLayout({
     const path = pathname
     switch (path) {
       case '/dashboard':
-        return 'Monitor your security posture in real-time with SentinelHub'
       case '/dashboard/scanner':
         return 'Comprehensive security analysis across multiple engines'
       case '/dashboard/reports':
         return 'Comprehensive security analysis and vulnerability tracking'
+      case '/dashboard/overview':
+        return 'Monitor your security posture with real-time metrics and insights'
       case '/dashboard/settings':
         return 'Manage your account and security preferences'
       default:
@@ -385,7 +405,7 @@ export default function DashboardLayout({
                   <div className="hidden md:block text-left">
                     <p className="text-sm font-medium text-white">{displayName}</p>
                     <p className="text-xs text-blue-400">
-                      {userRole || 'Select your role'}
+                      {selectedRole || userRole || 'Select your role'}
                     </p>
                   </div>
 
@@ -435,7 +455,7 @@ export default function DashboardLayout({
                   <p className="text-sm font-medium text-white">{displayName}</p>
                   <p className="text-xs text-gray-400">{userEmail}</p>
                   <p className="text-xs text-blue-400">
-                    {userRole || 'No role selected'}
+                    {selectedRole || userRole || 'No role selected'}
                   </p>
                 </div>
               </div>

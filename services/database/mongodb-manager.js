@@ -43,8 +43,12 @@ class MongoDBManager {
       
       this.client = new MongoClient(uri, {
         maxPoolSize: 10,
-        serverSelectionTimeoutMS: 5000,
+        serverSelectionTimeoutMS: 30000,  // Increased to 30 seconds
         socketTimeoutMS: 45000,
+        connectTimeoutMS: 30000,  // Add connection timeout
+        family: 4,  // Force IPv4 to avoid DNS issues
+        retryWrites: true,
+        retryReads: true,
       });
       
       await this.client.connect();

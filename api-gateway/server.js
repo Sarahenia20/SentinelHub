@@ -313,10 +313,10 @@ app.use('/api/pipeline', pipelineRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/reports-management', reportsManagementRoutes);
+app.use('/api/reports', reportsRoutes); // Made public for reports page intelligence
 
 // Protected API Routes (require Clerk authentication)
 app.use('/api/scan', ClerkExpressRequireAuth(), scanRoutes);
-app.use('/api/reports', ClerkExpressRequireAuth(), reportsRoutes);
 app.use('/api/settings', ClerkExpressRequireAuth(), settingsRoutes);
 
 // Error handling middleware

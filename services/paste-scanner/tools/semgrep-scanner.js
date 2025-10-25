@@ -124,12 +124,13 @@ class SemgrepScanner {
       let stdout = '';
       let stderr = '';
       
-      // Add 30 second timeout for performance
+      // Add timeout for performance (configurable via env, default 60 seconds)
+      const timeoutMs = (parseInt(process.env.SEMGREP_TIMEOUT) || 60) * 1000;
       const timeout = setTimeout(() => {
-        console.log('   ⏰ Semgrep timeout after 30s - terminating process');
+        console.log(`   ⏰ Semgrep timeout after ${timeoutMs/1000}s - terminating process`);
         semgrep.kill('SIGKILL');
-        reject(new Error('Semgrep scan timed out after 30 seconds'));
-      }, 30000);
+        reject(new Error(`Semgrep scan timed out after ${timeoutMs/1000} seconds`));
+      }, timeoutMs);
 
       semgrep.stdout.on('data', (data) => {
         stdout += data.toString();

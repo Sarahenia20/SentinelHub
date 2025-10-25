@@ -113,7 +113,7 @@ Requirements:
 
     console.log(`🤖 Processing security chat: "${message.substring(0, 100)}..."`);
 
-    const response = await conversationAI.openaiAI.queryGPT(securityPrompt, {
+    const response = await conversationAI.geminiAI.queryGemini(securityPrompt, {
       sessionId: sessionId || `sess_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       maxTokens: options?.maxTokens || 200, // Reduced for shorter responses
       temperature: options?.temperature || 0.7

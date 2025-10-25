@@ -373,7 +373,7 @@ router.post('/scan-bucket', async (req, res) => {
       }
     ];
 
-    res.json({
+    const scanResult = {
       success: true,
       data: {
         bucket: bucketName,
@@ -384,7 +384,36 @@ router.post('/scan-bucket', async (req, res) => {
           medium: issues.filter(i => i.severity === 'medium').length
         }
       }
-    });
+    };
+
+    // Save scan results to database for intelligence and reports
+    try {
+      if (req.services && req.services.database) {
+        await req.services.database.storePipelineResults({
+          pipelineId: `s3-scan-${Date.now()}`,
+          scanType: 's3-bucket',
+          timestamp: new Date().toISOString(),
+          scanResults: scanResult,
+          summary: {
+            securityScore: 100 - (scanResult.data.summary.high * 20 + scanResult.data.summary.medium * 10),
+            totalIssues: scanResult.data.summary.total,
+            riskLevel: scanResult.data.summary.high > 0 ? 'high' : scanResult.data.summary.medium > 0 ? 'medium' : 'low'
+          },
+          findings: {
+            critical: 0,
+            high: scanResult.data.summary.high,
+            medium: scanResult.data.summary.medium,
+            low: 0
+          },
+          status: 'completed'
+        });
+        console.log(`✅ Saved S3 scan for ${bucketName} to database`);
+      }
+    } catch (dbError) {
+      console.error('Failed to save to database (non-fatal):', dbError.message);
+    }
+
+    res.json(scanResult);
 
   } catch (error) {
     console.error('AWS bucket scan error:', error);

@@ -3,14 +3,15 @@ import { useState, useEffect, useCallback, useRef } from "react"
 import ReactMarkdown from 'react-markdown'
 import { useRouter } from "next/navigation"
 import { apiService, type GitHubRepository, type DockerImage, type S3Bucket, type PasteScanRequest, type PasteScanResult } from '@/utils/api'
-import { 
-  PlayIcon, 
-  StopIcon, 
-  ChatBubbleLeftRightIcon, 
+import {
+  PlayIcon,
+  StopIcon,
+  ChatBubbleLeftRightIcon,
   PaperAirplaneIcon,
   ShieldCheckIcon,
   ExclamationTriangleIcon,
   DocumentTextIcon,
+  DocumentArrowDownIcon,
   CommandLineIcon,
   BugAntIcon,
   KeyIcon,
@@ -25,6 +26,7 @@ import {
   DocumentMagnifyingGlassIcon,
   CogIcon
 } from "@heroicons/react/24/outline"
+import { VoiceButton } from '../voice-button'
 
 interface ScanResult {
   id: string
@@ -178,11 +180,16 @@ def read_file(filename):
   const [chatInput, setChatInput] = useState('')
   const [isTyping, setIsTyping] = useState(false)
   const [pasteScanResult, setPasteScanResult] = useState<PasteScanResult | null>(null)
+  const [apiScanScore, setApiScanScore] = useState<number | null>(null) // Store security score from API scans
   const [isLiveScanning, setIsLiveScanning] = useState(false)
   const [enableLiveScanning, setEnableLiveScanning] = useState(false)
   const [selectedLanguage, setSelectedLanguage] = useState('javascript')
   const [showLanguageAlert, setShowLanguageAlert] = useState(false)
   const liveScanTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const [showSaveModal, setShowSaveModal] = useState(false)
+  const [scanName, setScanName] = useState('')
+  const [isGeneratingDescription, setIsGeneratingDescription] = useState(false)
+  const [generatedDescription, setGeneratedDescription] = useState('')
 
   // Load repositories when GitHub scan type is selected
   useEffect(() => {
@@ -497,9 +504,10 @@ def read_file(filename):
             cisControl: result.cisControl,
             engine: result.engine
           }))
-          
+
           setScanResults(results)
-          
+          setApiScanScore(dockerBenchResults.benchmark.securityScore) // Store the security score from API
+
           setTimeout(() => {
             const analysis: ChatMessage = {
               id: Date.now().toString(),
@@ -576,10 +584,11 @@ def read_file(filename):
               engine: 'ESLint'
             }))
           ]
-          
+
           setScanResults(convertedResults)
+          setApiScanScore(result.summary.securityScore) // Store the security score from API
           setIsScanning(false)
-          
+
           // AI Analysis with real repository data
           setTimeout(() => {
             const analysis: ChatMessage = {
@@ -809,7 +818,7 @@ def read_file(filename):
 
   const generateResponse = (input: string): string => {
     const lower = input.toLowerCase()
-    const contextInfo = `\n\nCONTEXT_DATA\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nScan Type: ${scanType.toUpperCase()}\nActive Tab: ${activeTab.toUpperCase()}\nVulnerabilities Found: ${scanResults.length}\nSecurity Score: ${securityScore}/100`
+    const contextInfo = `\n\nCONTEXT_DATA\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nScan Type: ${scanType.toUpperCase()}\nActive Tab: ${activeTab.toUpperCase()}\nVulnerabilities Found: ${scanResults.length}\nSecurity Score: ${securityScore !== null ? `${securityScore}/100` : 'Not analyzed yet'}`
     
     if (lower.includes('help')) {
       return `SENTINELHUB_AI HELP SYSTEM\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nAvailable Commands:\n• explain <vulnerability> - Get detailed explanations\n• fix <issue> - Receive remediation steps\n• analyze <code> - Security code review\n• report - Generate security summary\n• context - View current scan context\n\nExample Queries:\n> explain sql injection\n> fix hardcoded secrets\n> analyze authentication flow${contextInfo}`
@@ -817,7 +826,7 @@ def read_file(filename):
     
     if (lower.includes('context')) {
       const currentEngines = getEnginesForScanType(scanType);
-      return `SCAN_CONTEXT_ANALYSIS\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nCurrent Configuration:\n• Scan Type: ${scanType.toUpperCase()}\n• Active Tab: ${activeTab.toUpperCase()}\n• Results: ${scanResults.length} vulnerabilities\n• Security Score: ${securityScore}/100\n• Engines: ${currentEngines.map(e => e.name).join(', ')}\n\n${scanResults.length > 0 ? 'Threats Detected:\n' + scanResults.map(r => `• ${r.type.toUpperCase()}: ${r.title}`).join('\n') : 'No active threats detected.'}`
+      return `SCAN_CONTEXT_ANALYSIS\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nCurrent Configuration:\n• Scan Type: ${scanType.toUpperCase()}\n• Active Tab: ${activeTab.toUpperCase()}\n• Results: ${scanResults.length} vulnerabilities\n• Security Score: ${securityScore !== null ? `${securityScore}/100` : 'Not analyzed yet'}\n• Engines: ${currentEngines.map(e => e.name).join(', ')}\n\n${scanResults.length > 0 ? 'Threats Detected:\n' + scanResults.map(r => `• ${r.type.toUpperCase()}: ${r.title}`).join('\n') : 'No active threats detected.'}`
     }
     
     if (lower.includes('fix') || lower.includes('how')) {
@@ -839,7 +848,8 @@ def read_file(filename):
     }
     
     if (lower.includes('report')) {
-      return `SECURITY_ASSESSMENT_REPORT\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nScan Summary:\n• Total Issues: ${scanResults.length}\n• Critical: ${scanResults.filter(r => r.type === 'critical').length}\n• High: ${scanResults.filter(r => r.type === 'high').length}\n• Medium: ${scanResults.filter(r => r.type === 'medium').length}\n• Low: ${scanResults.filter(r => r.type === 'low').length}\n\nSecurity Posture: ${securityScore >= 80 ? 'GOOD' : securityScore >= 60 ? 'MODERATE' : 'CRITICAL'}\nRecommendation: ${scanResults.length === 0 ? 'Continue monitoring' : 'Address critical issues first'}${contextInfo}`
+      const posture = securityScore !== null ? (securityScore >= 80 ? 'GOOD' : securityScore >= 60 ? 'MODERATE' : 'CRITICAL') : 'PENDING ANALYSIS'
+      return `SECURITY_ASSESSMENT_REPORT\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nScan Summary:\n• Total Issues: ${scanResults.length}\n• Critical: ${scanResults.filter(r => r.type === 'critical').length}\n• High: ${scanResults.filter(r => r.type === 'high').length}\n• Medium: ${scanResults.filter(r => r.type === 'medium').length}\n• Low: ${scanResults.filter(r => r.type === 'low').length}\n\nSecurity Posture: ${posture}\nRecommendation: ${scanResults.length === 0 ? 'Continue monitoring' : 'Address critical issues first'}${contextInfo}`
     }
     
     return `SENTINELHUB_AI READY\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nI'm your security analysis assistant. I can:\n• Explain vulnerabilities in detail\n• Provide specific remediation steps\n• Analyze code for security issues\n• Generate security reports\n\nTry: 'help' | 'explain <topic>' | 'fix <issue>' | 'context'${contextInfo}`
@@ -857,8 +867,32 @@ def read_file(filename):
 
   const criticalCount = scanResults.filter(r => r.type === 'critical').length
   const highCount = scanResults.filter(r => r.type === 'high').length
-  const securityScore = pasteScanResult ? pasteScanResult.summary.securityScore : 
-                       (scanResults.length === 0 ? 0 : Math.max(20, 100 - (criticalCount * 30 + highCount * 20)))
+  const mediumCount = scanResults.filter(r => r.type === 'medium').length
+
+  // Calculate security score (100 = perfect, 0 = critical issues)
+  const calculateScore = (): number | null => {
+    // Priority 1: Use API scan score from GitHub/AWS/Docker scans
+    if (apiScanScore !== null) {
+      return apiScanScore
+    }
+    // Priority 2: Use paste scan results
+    if (pasteScanResult?.summary?.securityScore !== undefined) {
+      return pasteScanResult.summary.securityScore
+    }
+    // If no scan has been run yet (no results and no paste scan), return null
+    if (scanResults.length === 0 && !pasteScanResult) {
+      return null // No score yet - scan hasn't been run
+    }
+    // If we have scan results but no pasteScanResult, calculate score
+    if (scanResults.length === 0) {
+      return 100 // Perfect score when scan completed with no issues
+    }
+    // Deduct points: Critical=-25, High=-10, Medium=-5
+    const deductions = (criticalCount * 25) + (highCount * 10) + (mediumCount * 5)
+    return Math.max(0, 100 - deductions)
+  }
+
+  const securityScore = calculateScore()
 
   const scanTypeOptions = [
     { type: 'code' as const, name: 'Code Analysis', icon: CodeBracketIcon, description: 'Paste code for analysis' },
@@ -878,13 +912,72 @@ def read_file(filename):
   const currentResults = scanResults.slice(indexOfFirstResult, indexOfLastResult)
   const totalPages = Math.ceil(scanResults.length / resultsPerPage)
 
+  // Generate AI description for scan
+  const generateAIDescription = async () => {
+    setIsGeneratingDescription(true)
+    try {
+      const critical = scanResults.filter(r => r.type === 'critical').length
+      const high = scanResults.filter(r => r.type === 'high').length
+      const medium = scanResults.filter(r => r.type === 'medium').length
+      const low = scanResults.filter(r => r.type === 'low').length
+
+      // Get unique engines used
+      const engines = Array.from(new Set(scanResults.map(r => r.engine))).filter(Boolean)
+
+      // Generate description using Gemini AI
+      const response = await fetch('http://localhost:4000/api/chat/message', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: `Generate a professional, concise security scan summary (2-3 sentences) for a scan that found: ${critical} critical, ${high} high, ${medium} medium, ${low} low severity issues using ${engines.join(', ')}. Focus on the risk level and key findings.`
+        })
+      })
+
+      const data = await response.json()
+      const description = data.response || `Security scan identified ${scanResults.length} issues across ${engines.length} security engines. ${critical > 0 ? `Found ${critical} critical vulnerabilities requiring immediate attention.` : 'No critical issues detected.'}`
+
+      setGeneratedDescription(description)
+    } catch (error) {
+      console.error('Failed to generate description:', error)
+      const total = scanResults.length
+      setGeneratedDescription(`Automated security scan completed, analyzing ${total} potential security issues.`)
+    } finally {
+      setIsGeneratingDescription(false)
+    }
+  }
+
   const saveReport = () => {
     if (scanResults.length > 0) {
+      // Open save modal
+      setShowSaveModal(true)
+
+      // Auto-generate name based on scan type
+      const defaultName = `${scanType.toUpperCase()} Security Scan - ${new Date().toLocaleDateString()}`
+      setScanName(defaultName)
+
+      // Generate AI description
+      generateAIDescription()
+    }
+  }
+
+  const confirmSaveReport = () => {
+    if (scanResults.length > 0) {
+      // Extract REAL engines from scan results
+      const uniqueEngines = Array.from(new Set(scanResults.map(r => r.engine))).filter(Boolean)
+
+      // Get actual engines from pasteScanResult if available
+      let actualEngines = uniqueEngines
+      if ((pasteScanResult as any)?.metadata?.enginesUsed) {
+        actualEngines = (pasteScanResult as any).metadata.enginesUsed
+      }
+
       // Save to localStorage for SecurityReports page
       const savedReports = JSON.parse(localStorage.getItem('sentinelHub_scanReports') || '[]')
       const newReport = {
         id: `scan-${Date.now()}`,
         timestamp: new Date().toISOString(),
+        name: scanName || `${scanType} Security Scan`,
+        description: generatedDescription,
         source: scanType,
         sourceDetails: scanType === 'code' ? 'User submitted code' : `${scanType} scan`,
         vulnerabilities: {
@@ -893,16 +986,20 @@ def read_file(filename):
           medium: scanResults.filter(r => r.type === 'medium').length,
           low: scanResults.filter(r => r.type === 'low').length
         },
-        engines: ['ESLint Security', 'Pattern Matcher', 'CVE Database', 'GitHub Advisory', 'SonarQube'],
+        engines: actualEngines,
         status: 'completed',
-        duration: '2m 15s'
+        duration: (pasteScanResult as any)?.metadata?.duration || '2m 15s',
+        scanResults: pasteScanResult // Store actual scan data for intelligence
       }
       savedReports.unshift(newReport)
       localStorage.setItem('sentinelHub_scanReports', JSON.stringify(savedReports))
-      
+
+      // Close modal
+      setShowSaveModal(false)
+
       // Navigate to SecurityReports
       router.push('/dashboard/reports')
-      
+
       // Add success message to chat
       const successMsg: ChatMessage = {
         id: Date.now().toString(),
@@ -1532,13 +1629,7 @@ def read_file(filename):
                     Live Vulnerabilities ({scanResults.length})
                   </h3>
                   <button
-                    onClick={() => {
-                      saveReport()
-                      // Refresh the page after saving
-                      setTimeout(() => {
-                        window.location.reload()
-                      }, 1500)
-                    }}
+                    onClick={saveReport}
                     className="flex items-center px-4 py-2 bg-blue-600/80 hover:bg-blue-500/80 rounded-xl font-medium transition-all duration-200 border border-blue-500/30 backdrop-blur-sm"
                   >
                     <DocumentTextIcon className="w-4 h-4 mr-2" />
@@ -1618,20 +1709,42 @@ def read_file(filename):
                   </div>
                 )}
                 
-                {/* Save Button at Bottom */}
-                <div className="mt-8 flex justify-center">
+                {/* Save & Export Buttons at Bottom */}
+                <div className="mt-8 flex justify-center gap-4">
                   <button
-                    onClick={() => {
-                      saveReport()
-                      // Refresh the page after saving
-                      setTimeout(() => {
-                        window.location.reload()
-                      }, 1500)
-                    }}
+                    onClick={saveReport}
                     className="flex items-center px-8 py-3 bg-blue-700 hover:bg-blue-600 rounded-xl font-semibold transition-all duration-300 border border-blue-500/40 backdrop-blur-sm shadow-lg hover:shadow-xl hover:scale-105 group"
                   >
                     <DocumentTextIcon className="w-5 h-5 mr-3 group-hover:scale-110 transition-transform" />
-                    <span>Save Report & Refresh Page</span>
+                    <span>Save Report</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      const exportData = {
+                        timestamp: new Date().toISOString(),
+                        scanType: scanType,
+                        results: scanResults,
+                        summary: {
+                          total: scanResults.length,
+                          critical: scanResults.filter(r => r.type === 'critical').length,
+                          high: scanResults.filter(r => r.type === 'high').length,
+                          medium: scanResults.filter(r => r.type === 'medium').length,
+                          low: scanResults.filter(r => r.type === 'low').length
+                        },
+                        fullScanData: pasteScanResult
+                      }
+                      const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' })
+                      const url = URL.createObjectURL(blob)
+                      const a = document.createElement('a')
+                      a.href = url
+                      a.download = `security-scan-${Date.now()}.json`
+                      a.click()
+                      URL.revokeObjectURL(url)
+                    }}
+                    className="flex items-center px-8 py-3 bg-purple-700 hover:bg-purple-600 rounded-xl font-semibold transition-all duration-300 border border-purple-500/40 backdrop-blur-sm shadow-lg hover:shadow-xl hover:scale-105 group"
+                  >
+                    <DocumentArrowDownIcon className="w-5 h-5 mr-3 group-hover:scale-110 transition-transform" />
+                    <span>Export JSON</span>
                   </button>
                 </div>
               </div>
@@ -1657,11 +1770,11 @@ def read_file(filename):
                   <span className="text-white font-medium">Security Score</span>
                 </div>
                 <div className="text-right">
-                  <div className="text-2xl font-bold text-cyan-400">
-                    {scanResults.length === 0 ? '--' : securityScore}
+                  <div className={`text-2xl font-bold ${securityScore === null ? 'text-gray-600' : securityScore >= 80 ? 'text-green-400' : securityScore >= 60 ? 'text-yellow-400' : 'text-red-400'}`}>
+                    {securityScore === null ? '---' : securityScore}
                   </div>
                   <div className="text-xs text-gray-400">
-                    {scanResults.length === 0 ? 'No scan data' : `${scanResults.length} issues`}
+                    {securityScore === null ? 'Run scan to analyze' : scanResults.length === 0 ? 'Perfect score' : `${scanResults.length} issues`}
                   </div>
                 </div>
               </div>
@@ -1703,7 +1816,8 @@ def read_file(filename):
                             <span className="font-semibold text-sm">
                               {msg.role === 'user' ? 'You' : 'SentinelHub AI'}
                             </span>
-                            <span className="text-xs text-gray-400 ml-auto">
+                            <span className="text-xs text-gray-400 ml-auto flex items-center gap-2">
+                              {msg.role === 'ai' && <VoiceButton text={msg.content} size="sm" />}
                               {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                             </span>
                           </div>
@@ -1814,6 +1928,122 @@ def read_file(filename):
           </div>
         </div>
       </div>
+
+      {/* Save Report Modal */}
+      {showSaveModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-gray-900 border border-blue-500/30 rounded-2xl shadow-2xl max-w-2xl w-full p-6">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="text-2xl font-bold text-white flex items-center">
+                  <DocumentTextIcon className="w-7 h-7 mr-3 text-blue-400" />
+                  Save Security Scan Report
+                </h2>
+                <p className="text-sm text-gray-400 mt-1">Configure report details before saving</p>
+              </div>
+              <button
+                onClick={() => setShowSaveModal(false)}
+                className="text-gray-400 hover:text-white transition-colors"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Report Name Input */}
+            <div className="mb-6">
+              <label className="block text-sm font-semibold text-gray-300 mb-2">
+                Report Name <span className="text-red-400">*</span>
+              </label>
+              <input
+                type="text"
+                value={scanName}
+                onChange={(e) => setScanName(e.target.value)}
+                className="w-full px-4 py-3 bg-gray-800/50 border border-gray-600/50 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/20 transition-all"
+                placeholder="e.g., Production API Security Audit"
+              />
+            </div>
+
+            {/* AI Generated Description */}
+            <div className="mb-6">
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-sm font-semibold text-gray-300">
+                  Description
+                </label>
+                {isGeneratingDescription && (
+                  <div className="flex items-center text-xs text-blue-400">
+                    <CpuChipIcon className="w-4 h-4 mr-1 animate-spin" />
+                    AI Generating...
+                  </div>
+                )}
+              </div>
+              <textarea
+                value={generatedDescription}
+                onChange={(e) => setGeneratedDescription(e.target.value)}
+                rows={4}
+                className="w-full px-4 py-3 bg-gray-800/50 border border-gray-600/50 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/20 transition-all resize-none"
+                placeholder="AI will generate a description based on scan results..."
+              />
+              <p className="text-xs text-gray-500 mt-2">
+                <CpuChipIcon className="w-3 h-3 inline mr-1" />
+                AI-generated summary • You can edit this
+              </p>
+            </div>
+
+            {/* Scan Summary */}
+            <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-4 mb-6">
+              <h3 className="text-sm font-semibold text-blue-300 mb-3">Scan Summary</h3>
+              <div className="grid grid-cols-4 gap-3">
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-red-400">
+                    {scanResults.filter(r => r.type === 'critical').length}
+                  </div>
+                  <div className="text-xs text-gray-400">Critical</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-orange-400">
+                    {scanResults.filter(r => r.type === 'high').length}
+                  </div>
+                  <div className="text-xs text-gray-400">High</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-yellow-400">
+                    {scanResults.filter(r => r.type === 'medium').length}
+                  </div>
+                  <div className="text-xs text-gray-400">Medium</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-blue-400">
+                    {scanResults.filter(r => r.type === 'low').length}
+                  </div>
+                  <div className="text-xs text-gray-400">Low</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowSaveModal(false)}
+                className="flex-1 px-6 py-3 bg-gray-800/50 hover:bg-gray-800 border border-gray-600/50 rounded-xl text-white font-semibold transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmSaveReport}
+                disabled={!scanName.trim()}
+                className="flex-1 px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 disabled:from-gray-600 disabled:to-gray-600 disabled:cursor-not-allowed rounded-xl text-white font-semibold shadow-lg shadow-blue-500/20 transition-all flex items-center justify-center"
+              >
+                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+                Save Report
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

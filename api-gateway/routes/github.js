@@ -366,6 +366,24 @@ router.post('/scan/:owner/:repo', async (req, res) => {
       ]
     };
 
+    // Save scan results to database for intelligence and reports
+    try {
+      if (req.services && req.services.database) {
+        await req.services.database.storePipelineResults({
+          pipelineId: response.scanId,
+          scanType: 'github-repository',
+          timestamp: response.timestamp,
+          scanResults: response,
+          summary: response.summary,
+          findings: response.findings,
+          status: 'completed'
+        });
+        console.log(`✅ Saved GitHub scan ${response.scanId} to database`);
+      }
+    } catch (dbError) {
+      console.error('Failed to save to database (non-fatal):', dbError.message);
+    }
+
     res.json(response);
 
   } catch (error) {

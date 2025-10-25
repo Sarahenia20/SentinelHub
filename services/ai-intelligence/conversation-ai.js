@@ -1,24 +1,24 @@
-const OpenAIAssistant = require('./openai-assistant');
+const GeminiAssistant = require('./gemini-assistant');
 
 /**
  * Conversational AI for Security Analysis
  * Full conversation system for security findings, recommendations, and expert advice
- * Uses OpenAI GPT as primary model with intelligent conversation flow
+ * Uses Google Gemini as primary model with intelligent conversation flow
  */
 class ConversationAI {
   constructor() {
     this.name = 'SentinelHub Conversational AI';
-    this.version = '1.0.0';
-    
-    // Initialize AI model
-    this.openaiAI = new OpenAIAssistant();
-    
+    this.version = '2.0.0';
+
+    // Initialize AI model - Now using Gemini!
+    this.geminiAI = new GeminiAssistant();
+
     // Conversation context
     this.conversationHistory = [];
     this.currentScanResults = null;
     this.sessionId = this.generateSessionId();
-    
-    console.log(`Conversational AI ${this.version} initialized with OpenAI`);
+
+    console.log(`✨ Conversational AI ${this.version} initialized with Google Gemini`);
   }
   
   /**
@@ -49,8 +49,8 @@ class ConversationAI {
       // Build context-aware prompt
       const contextualPrompt = this.buildContextualPrompt(userMessage);
       
-      // Get AI response from OpenAI with shorter, focused responses
-      const aiResponse = await this.openaiAI.queryGPT(contextualPrompt, {
+      // Get AI response from Gemini with shorter, focused responses
+      const aiResponse = await this.geminiAI.queryGemini(contextualPrompt, {
         maxTokens: options.maxTokens || 200, // Reduced from 400 to 200 for conciseness
         temperature: 0.7
       });
@@ -81,7 +81,7 @@ class ConversationAI {
     const overviewPrompt = this.buildOverviewPrompt(scanSummary);
     
     try {
-      const overview = await this.openaiAI.queryGPT(overviewPrompt, {
+      const overview = await this.geminiAI.queryGemini(overviewPrompt, {
         maxTokens: 250, // Reduced from 350 to 250 for conciseness
         temperature: 0.6
       });
@@ -109,54 +109,53 @@ class ConversationAI {
   buildContextualPrompt(userMessage) {
     const scanContext = this.buildScanSummary(this.currentScanResults);
     const conversationContext = this.buildConversationContext();
-    
-    return `SECURITY EXPERT CONSULTATION
+
+    // Check if question is security-related
+    const securityKeywords = ['vulnerability', 'security', 'risk', 'threat', 'attack', 'exploit', 'injection', 'xss', 'csrf', 'authentication', 'authorization', 'encryption', 'credential', 'secret', 'api', 'database', 'code', 'scan', 'finding', 'issue', 'fix', 'remediate', 'protect', 'secure', 'hardening', 'compliance', 'owasp', 'cve', 'patch'];
+    const isSecurityRelated = securityKeywords.some(keyword => userMessage.toLowerCase().includes(keyword)) ||
+                              userMessage.toLowerCase().match(/\b(how|what|why|when|where|can|should|explain|tell|show)\b/);
+
+    return `You are a friendly and knowledgeable cybersecurity expert having a conversation with a developer.
 
 SCAN RESULTS CONTEXT:
 ${scanContext}
 
-CONVERSATION HISTORY:
+RECENT CONVERSATION:
 ${conversationContext}
 
-USER QUESTION: ${userMessage}
+USER QUESTION: "${userMessage}"
 
-As a senior cybersecurity expert, provide a helpful and engaging response that:
-- Directly answers the user's question with clarity and confidence
-- References specific findings when relevant  
-- Provides actionable steps in numbered format
-- Uses proper markdown formatting (**, ###, -, etc.)
-- Balances technical accuracy with approachable explanations
-- Shows enthusiasm for security best practices
+RESPONSE GUIDELINES:
+- If the question is about security, vulnerabilities, or code: Answer naturally and conversationally
+- If the question is completely unrelated to security/development: Politely decline and redirect to security topics
+- Be flexible: Sometimes give brief pointers (1-2 sentences), sometimes explain in detail (5-10 sentences) based on what the question needs
+- Use markdown for clarity (**, -, numbered lists) but keep it natural, not overly structured
+- Reference specific scan findings when relevant
+- Be helpful, encouraging, and approachable - like a senior colleague, not a robot
 
-Format using proper markdown:
-- Use **bold** for emphasis
-- Use ### for headings
-- Use - for bullet points
-- Use numbered lists for steps
+TONE: Conversational, helpful, professional but friendly. Switch between brief answers and detailed explanations as appropriate.
 
-Keep response focused (under 15 lines) but engaging.
-
-SECURITY EXPERT RESPONSE:`;
+YOUR RESPONSE:`;
   }
   
   /**
    * Build overview prompt for initial conversation
    */
   buildOverviewPrompt(scanSummary) {
-    return `SECURITY SCAN CONSULTATION
+    return `You're a friendly cybersecurity expert reviewing scan results with a developer.
 
 ${scanSummary}
 
-As a cybersecurity expert, provide a brief, well-formatted overview that:
-- Summarizes security posture in 2-3 sentences
-- Lists top 3 critical issues using numbered format
-- Uses proper markdown formatting (**, ###, -)
-- Provides concise recommendations
-- Keeps total response under 15 lines
+Give a conversational overview:
+- Start with a quick assessment (is it good? bad? critical?)
+- Mention the top 2-3 things that need attention
+- Be encouraging if things look good, or supportive if there are issues
+- Keep it natural and conversational, not overly formal
+- Use markdown where it helps (**, -, numbers) but don't overdo it
 
-Format using proper markdown for readability.
+Talk like a helpful colleague, not a formal report.
 
-SECURITY CONSULTANT:`;
+YOUR RESPONSE:`;
   }
   
   /**
@@ -583,12 +582,12 @@ I'm here to help you understand these findings and create an action plan for rem
    * Health check
    */
   async getHealth() {
-    const openaiHealth = await this.openaiAI.getHealth();
-    
+    const geminiHealth = await this.geminiAI.getHealth();
+
     return {
-      status: openaiHealth.status,
+      status: geminiHealth.status,
       service: 'Conversational AI',
-      aiModel: 'OpenAI GPT',
+      aiModel: 'Google Gemini 2.0 Flash (Experimental)',
       capabilities: [
         'Interactive Security Consultations',
         'Vulnerability Analysis and Explanation',

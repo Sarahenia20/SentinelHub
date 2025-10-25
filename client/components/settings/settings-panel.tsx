@@ -31,6 +31,33 @@ export function SettingsPanel() {
   const [githubLoading, setGithubLoading] = useState(false)
   const [awsLoading, setAwsLoading] = useState(false)
   const [dockerLoading, setDockerLoading] = useState(false)
+  const [selectedRole, setSelectedRole] = useState('')
+
+  // IT Professional Roles
+  const itRoles = [
+    'Security Guardian',
+    'Offensive Security Expert',
+    'Infrastructure Security Expert',
+    'Application Security Specialist',
+    'All-Rounder Security Expert',
+    'Threat Intelligence Specialist',
+    'Security Engineer',
+    'DevOps Engineer',
+    'DevSecOps Engineer',
+    'Security Analyst',
+    'Penetration Tester',
+    'Cloud Security Architect',
+    'Security Operations Engineer',
+    'Compliance Officer',
+  ]
+
+  // Load saved role on mount
+  useEffect(() => {
+    const savedRole = sessionStorage.getItem('user_role')
+    if (savedRole) {
+      setSelectedRole(savedRole)
+    }
+  }, [])
 
   const [formData, setFormData] = useState({
     awsAccessKey: '',
@@ -255,16 +282,29 @@ export function SettingsPanel() {
 
                     <div>
                       <label className="block text-sm font-medium text-gray-300 mb-2">
-                        Role
+                        IT Professional Role
                       </label>
                       <select
+                        value={selectedRole}
+                        onChange={(e) => {
+                          const newRole = e.target.value
+                          setSelectedRole(newRole)
+                          sessionStorage.setItem('user_role', newRole)
+                          // Trigger header update
+                          window.dispatchEvent(new CustomEvent('roleChanged', { detail: newRole }))
+                        }}
                         className="w-full bg-gray-900/50 border border-gray-600/50 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500/50"
                       >
-                        <option>Security Engineer</option>
-                        <option>DevOps Engineer</option>
-                        <option>Developer</option>
-                        <option>Security Manager</option>
+                        <option value="">Select your role...</option>
+                        {itRoles.map((role) => (
+                          <option key={role} value={role}>
+                            {role}
+                          </option>
+                        ))}
                       </select>
+                      <p className="text-xs text-gray-500 mt-1">
+                        This role will appear in your profile header
+                      </p>
                     </div>
                   </div>
 
