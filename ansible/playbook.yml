@@ -1,0 +1,223 @@
+---
+# Ansible Playbook for SentinelHub Infrastructure Setup
+# Configures servers, installs dependencies, and deploys application
+
+- name: Setup SentinelHub Infrastructure
+  hosts: all
+  become: yes
+  vars:
+    nodejs_version: "18.x"
+    docker_version: "24.0"
+    app_user: "sentinelhub"
+    app_directory: "/opt/sentinelhub"
+
+  tasks:
+    - name: Update system packages
+      apt:
+        update_cache: yes
+        upgrade: dist
+      when: ansible_os_family == "Debian"
+
+    - name: Install required system packages
+      apt:
+        name:
+          - curl
+          - git
+          - build-essential
+          - python3
+          - python3-pip
+          - ufw
+        state: present
+      when: ansible_os_family == "Debian"
+
+    - name: Setup firewall rules
+      ufw:
+        rule: allow
+        port: "{{ item }}"
+        proto: tcp
+      loop:
+        - "22"    # SSH
+        - "80"    # HTTP
+        - "443"   # HTTPS
+        - "3000"  # Frontend
+        - "3001"  # API Gateway
+      when: ansible_os_family == "Debian"
+
+    - name: Enable firewall
+      ufw:
+        state: enabled
+      when: ansible_os_family == "Debian"
+
+- name: Install Docker
+  hosts: all
+  become: yes
+  tasks:
+    - name: Add Docker GPG key
+      apt_key:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        state: present
+
+    - name: Add Docker repository
+      apt_repository:
+        repo: deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable
+        state: present
+
+    - name: Install Docker
+      apt:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-compose-plugin
+        state: present
+        update_cache: yes
+
+    - name: Start Docker service
+      systemd:
+        name: docker
+        state: started
+        enabled: yes
+
+    - name: Add user to docker group
+      user:
+        name: "{{ app_user }}"
+        groups: docker
+        append: yes
+
+- name: Install Node.js
+  hosts: all
+  become: yes
+  tasks:
+    - name: Add NodeSource repository
+      shell: curl -fsSL https://deb.nodesource.com/setup_{{ nodejs_version }} | bash -
+
+    - name: Install Node.js
+      apt:
+        name: nodejs
+        state: present
+
+    - name: Verify Node.js installation
+      command: node --version
+      register: node_version
+
+    - name: Display Node.js version
+      debug:
+        msg: "Node.js {{ node_version.stdout }} installed"
+
+- name: Setup Application User
+  hosts: all
+  become: yes
+  tasks:
+    - name: Create application user
+      user:
+        name: "{{ app_user }}"
+        shell: /bin/bash
+        create_home: yes
+
+    - name: Create application directory
+      file:
+        path: "{{ app_directory }}"
+        state: directory
+        owner: "{{ app_user }}"
+        group: "{{ app_user }}"
+        mode: '0755'
+
+- name: Deploy Application
+  hosts: all
+  become: yes
+  become_user: "{{ app_user }}"
+  tasks:
+    - name: Clone application repository
+      git:
+        repo: 'https://github.com/YOUR_USERNAME/SentinelHub.git'
+        dest: "{{ app_directory }}"
+        version: main
+        force: yes
+
+    - name: Copy environment file
+      copy:
+        src: ../.env
+        dest: "{{ app_directory }}/.env"
+        owner: "{{ app_user }}"
+        group: "{{ app_user }}"
+        mode: '0600'
+
+    - name: Pull latest Docker images
+      command: docker-compose pull
+      args:
+        chdir: "{{ app_directory }}"
+
+    - name: Start application with Docker Compose
+      command: docker-compose up -d
+      args:
+        chdir: "{{ app_directory }}"
+
+    - name: Wait for application to be ready
+      wait_for:
+        host: localhost
+        port: 3000
+        delay: 10
+        timeout: 120
+
+- name: Setup Monitoring
+  hosts: all
+  become: yes
+  tasks:
+    - name: Start Prometheus
+      docker_container:
+        name: prometheus
+        image: prom/prometheus:latest
+        state: started
+        restart_policy: unless-stopped
+        ports:
+          - "9090:9090"
+        volumes:
+          - "{{ app_directory }}/services/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro"
+
+    - name: Start Grafana
+      docker_container:
+        name: grafana
+        image: grafana/grafana:latest
+        state: started
+        restart_policy: unless-stopped
+        ports:
+          - "3002:3000"
+        env:
+          GF_SECURITY_ADMIN_PASSWORD: "sentinelhub123"
+
+- name: Security Hardening
+  hosts: all
+  become: yes
+  tasks:
+    - name: Disable root SSH login
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^PermitRootLogin'
+        line: 'PermitRootLogin no'
+        state: present
+
+    - name: Disable password authentication
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^PasswordAuthentication'
+        line: 'PasswordAuthentication no'
+        state: present
+
+    - name: Restart SSH service
+      systemd:
+        name: ssh
+        state: restarted
+
+    - name: Setup automatic security updates
+      apt:
+        name: unattended-upgrades
+        state: present
+
+    - name: Configure automatic security updates
+      copy:
+        dest: /etc/apt/apt.conf.d/50unattended-upgrades
+        content: |
+          Unattended-Upgrade::Allowed-Origins {
+            "${distro_id}:${distro_codename}-security";
+          };
+          Unattended-Upgrade::Automatic-Reboot "false";

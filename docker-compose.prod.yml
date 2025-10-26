@@ -1,0 +1,189 @@
+# Production Docker Compose Configuration
+version: '3.8'
+
+services:
+  # MongoDB Database
+  mongodb:
+    image: mongo:7
+    container_name: sentinelhub-mongodb
+    ports:
+      - "27017:27017"
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=${MONGO_USERNAME:-sentinelhub}
+      - MONGO_INITDB_ROOT_PASSWORD=${MONGO_PASSWORD:-sentinelhub123}
+      - MONGO_INITDB_DATABASE=sentinelhub_security
+    volumes:
+      - mongodb_data:/data/db
+      - mongodb_config:/data/configdb
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - sentinelhub-network
+
+  # Redis Database
+  redis:
+    image: redis:7-alpine
+    container_name: sentinelhub-redis
+    ports:
+      - "6379:6379"
+    environment:
+      - REDIS_ARGS=--requirepass ${REDIS_PASSWORD:-sentinelhub123}
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-sentinelhub123}
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 30s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - sentinelhub-network
+
+  # SentinelHub API Gateway
+  api-gateway:
+    build:
+      context: ./api-gateway
+      dockerfile: Dockerfile
+    container_name: sentinelhub-api
+    ports:
+      - "3001:3001"
+      - "9001:9001"
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      - WS_PORT=9001
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-sentinelhub123}
+      - MONGODB_URI=mongodb://${MONGO_USERNAME:-sentinelhub}:${MONGO_PASSWORD:-sentinelhub123}@mongodb:27017/sentinelhub_security?authSource=admin
+      - MONGODB_DB_NAME=sentinelhub_security
+      - CLERK_PUBLISHABLE_KEY=${CLERK_PUBLISHABLE_KEY}
+      - CLERK_SECRET_KEY=${CLERK_SECRET_KEY}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - ALIENVAULT_API_KEY=${ALIENVAULT_API_KEY}
+      - IPQS_API_KEY=${IPQS_API_KEY}
+      - SONAR_TOKEN=${SONAR_TOKEN}
+      - SONARQUBE_URL=http://sonarqube:9000
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - scan_temp:/app/temp
+    depends_on:
+      redis:
+        condition: service_healthy
+      mongodb:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - sentinelhub-network
+
+  # Next.js Frontend
+  frontend:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+    container_name: sentinelhub-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=${CLERK_PUBLISHABLE_KEY}
+      - CLERK_SECRET_KEY=${CLERK_SECRET_KEY}
+      - NEXT_PUBLIC_API_URL=http://api-gateway:3001/api
+      - NEXT_PUBLIC_WS_URL=ws://api-gateway:9001
+    depends_on:
+      - api-gateway
+    restart: unless-stopped
+    networks:
+      - sentinelhub-network
+
+  # Prometheus for metrics
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: sentinelhub-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./services/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    restart: unless-stopped
+    networks:
+      - sentinelhub-network
+
+  # Grafana for dashboards
+  grafana:
+    image: grafana/grafana:latest
+    container_name: sentinelhub-grafana
+    ports:
+      - "3002:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-sentinelhub123}
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+    networks:
+      - sentinelhub-network
+
+  # SonarQube for code quality
+  sonarqube:
+    image: sonarqube:community
+    container_name: sentinelhub-sonarqube
+    ports:
+      - "9000:9000"
+    environment:
+      - SONAR_ES_BOOTSTRAP_CHECKS_DISABLE=true
+      - SONAR_JDBC_URL=jdbc:postgresql://postgres:5432/sonar
+      - SONAR_JDBC_USERNAME=sonar
+      - SONAR_JDBC_PASSWORD=sonar
+    volumes:
+      - sonarqube_data:/opt/sonarqube/data
+      - sonarqube_extensions:/opt/sonarqube/extensions
+      - sonarqube_logs:/opt/sonarqube/logs
+    depends_on:
+      - postgres
+    restart: unless-stopped
+    networks:
+      - sentinelhub-network
+
+  # PostgreSQL for SonarQube
+  postgres:
+    image: postgres:13
+    container_name: sentinelhub-postgres
+    environment:
+      - POSTGRES_USER=sonar
+      - POSTGRES_PASSWORD=sonar
+      - POSTGRES_DB=sonar
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    networks:
+      - sentinelhub-network
+
+volumes:
+  mongodb_data:
+  mongodb_config:
+  redis_data:
+  scan_temp:
+  prometheus_data:
+  grafana_data:
+  sonarqube_data:
+  sonarqube_extensions:
+  sonarqube_logs:
+  postgres_data:
+
+networks:
+  sentinelhub-network:
+    driver: bridge

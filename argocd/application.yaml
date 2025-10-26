@@ -1,0 +1,43 @@
+# ArgoCD Application Definition
+# GitOps-based continuous deployment for SentinelHub
+
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: sentinelhub
+  namespace: argocd
+spec:
+  project: default
+
+  # Source repository
+  source:
+    repoURL: https://github.com/Sarahenia20/SentinelHub.git
+    targetRevision: main
+    path: kubernetes
+
+  # Destination cluster
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: sentinelhub
+
+  # Sync policy
+  syncPolicy:
+    automated:
+      prune: true      # Remove resources not in Git
+      selfHeal: true   # Automatically sync when drift detected
+      allowEmpty: false
+    syncOptions:
+      - CreateNamespace=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+
+  # Health checks
+  ignoreDifferences:
+    - group: apps
+      kind: Deployment
+      jsonPointers:
+        - /spec/replicas  # Ignore HPA-managed replicas

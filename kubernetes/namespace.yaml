@@ -1,0 +1,8 @@
+# Kubernetes Namespace for SentinelHub
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: sentinelhub
+  labels:
+    name: sentinelhub
+    environment: production
